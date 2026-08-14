@@ -1,0 +1,16 @@
+{
+  "name": "GMAT PrepMaster Pro",
+  "short_name": "GMAT Prep",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "description": "Comprehensive GMAT study application with 1,080 questions, exam simulator, and error log.",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><text x='50' y='65' font-size='38' font-weight='bold' font-family='Arial' fill='white' text-anchor='middle'>GMAT</text></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

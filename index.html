@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GMAT PrepMaster Pro - 1,000+ Question Bank, Exam Simulator & Error Log</title>
+  <meta name="description" content="Ultimate GMAT prep platform featuring a comprehensive 1000+ question bank, official exam simulation, deep error log analysis, and performance analytics.">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="stylesheet" href="./css/style.css">
+  <!-- MathJax for rendering LaTeX math expressions -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)'], ['$', '$']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body data-theme="light">
+
+  <div id="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-badge">GMAT</div>
+        <div>
+          <div class="brand-title">PrepMaster Pro</div>
+          <div class="brand-subtitle">Focus Edition 1,080 Qs</div>
+        </div>
+      </div>
+
+      <ul class="sidebar-menu">
+        <li>
+          <a class="nav-item active" data-view="dashboard" id="nav-dashboard">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Dashboard</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="practice" id="nav-practice">
+            <span class="nav-icon">⚡</span>
+            <span class="nav-label">Practice Drills</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="official-mock" id="nav-official-mock">
+            <span class="nav-icon">🎓</span>
+            <span class="nav-label">Exam Simulator</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="error-log" id="nav-error-log">
+            <span class="nav-icon">❌</span>
+            <span class="nav-label">Error Log</span>
+            <span class="nav-badge" id="sidebar-error-badge">0</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="qbank" id="nav-qbank">
+            <span class="nav-icon">📚</span>
+            <span class="nav-label">Question Bank</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="formulas" id="nav-formulas">
+            <span class="nav-icon">📐</span>
+            <span class="nav-label">Formula Vault</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="analytics" id="nav-analytics">
+            <span class="nav-icon">📈</span>
+            <span class="nav-label">Analytics</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="settings" id="nav-settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Settings & Backup</span>
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <span>GMAT Focus 205-805</span>
+        <span id="storage-status-text">IndexedDB Active</span>
+      </div>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+      <!-- Top Application Header -->
+      <header class="top-header">
+        <div class="header-title-container">
+          <h1 id="page-title">Dashboard Overview</h1>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-secondary btn-sm" id="btn-toggle-scratchpad" title="Open Scratchpad Notes">
+            📝 Scratchpad
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-toggle-calc" title="Open On-Screen Calculator">
+            🔢 Calculator
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-theme-toggle" title="Toggle Light / Dark / Official Theme">
+            🌓 Theme
+          </button>
+          <button class="btn btn-primary btn-sm" id="btn-quick-custom-drill">
+            + Custom Quiz
+          </button>
+        </div>
+      </header>
+
+      <!-- Views Container -->
+      <main class="content-body">
+
+        <!-- =========================================================
+             VIEW 1: DASHBOARD
+             ========================================================= -->
+        <section class="view-section active" id="view-dashboard">
+          <div class="score-banner">
+            <div class="score-info">
+              <h2>Target Score: 705+ (Focus Edition)</h2>
+              <p>Comprehensive preparation across Quantitative, Verbal, and Data Insights sections.</p>
+              <div style="margin-top: 14px; display: flex; gap: 10px;">
+                <button class="btn btn-primary" id="btn-dash-retry-mistakes">⚡ Drill My Mistakes</button>
+                <button class="btn btn-secondary" id="btn-dash-quick-quant">Start Quant Quiz</button>
+              </div>
+            </div>
+            <div class="score-metric-box">
+              <div class="score-val" id="dash-score-estimate">--</div>
+              <div class="score-label">Estimated GMAT Score</div>
+            </div>
+          </div>
+
+          <!-- Quick Metrics Grid -->
+          <div class="metrics-grid">
+            <div class="card">
+              <div class="metric-card-header">
+                <span class="metric-title">Question Bank Coverage</span>
+                <span class="metric-icon">📚</span>
+              </div>
+              <div class="metric-number" id="dash-solved-count">0 / 1,080</div>
+              <div class="metric-subtext" id="dash-solved-pct">0% Completed</div>
+            </div>
+
+            <div class="card">
+              <div class="metric-card-header">
+                <span class="metric-title">Overall Accuracy</span>
+                <span class="metric-icon">🎯</span>
+              </div>
+              <div class="metric-number" id="dash-accuracy-val">0%</div>
+              <div class="metric-subtext" id="dash-accuracy-sub">Across all attempts</div>
+            </div>
+
+            <div class="card">
+              <div class="metric-card-header">
+                <span class="metric-title">Error Log Items</span>
+                <span class="metric-icon">❌</span>
+              </div>
+              <div class="metric-number" style="color: var(--danger);" id="dash-error-count">0</div>
+              <div class="metric-subtext">Mistakes pending review</div>
+            </div>
+
+            <div class="card">
+              <div class="metric-card-header">
+                <span class="metric-title">Avg Time / Question</span>
+                <span class="metric-icon">⏱️</span>
+              </div>
+              <div class="metric-number" id="dash-pace-val">-- s</div>
+              <div class="metric-subtext">Official Target: 120s (2 min)</div>
+            </div>
+          </div>
+
+          <!-- Quick Launch Drills -->
+          <div class="section-heading">
+            <span>Quick Section Drills (10 Questions)</span>
+          </div>
+
+          <div class="quick-drills-grid">
+            <div class="drill-card quant" id="card-drill-quant">
+              <div>
+                <div class="drill-header">
+                  <span class="drill-icon">📐</span>
+                  <span class="drill-title">Quantitative Reasoning</span>
+                </div>
+                <p class="drill-desc">Arithmetic, Algebra, Number Properties, Word Problems, Combinatorics & Geometry.</p>
+              </div>
+              <div class="drill-meta">
+                <span>380 Bank Questions</span>
+                <button class="btn btn-primary btn-sm">Start Drill →</button>
+              </div>
+            </div>
+
+            <div class="drill-card verbal" id="card-drill-verbal">
+              <div>
+                <div class="drill-header">
+                  <span class="drill-icon">📖</span>
+                  <span class="drill-title">Verbal Reasoning</span>
+                </div>
+                <p class="drill-desc">Critical Reasoning arguments, Reading Comprehension passages, and Sentence Correction.</p>
+              </div>
+              <div class="drill-meta">
+                <span>380 Bank Questions</span>
+                <button class="btn btn-primary btn-sm">Start Drill →</button>
+              </div>
+            </div>
+
+            <div class="drill-card di" id="card-drill-di">
+              <div>
+                <div class="drill-header">
+                  <span class="drill-icon">📊</span>
+                  <span class="drill-title">Data Insights</span>
+                </div>
+                <p class="drill-desc">Data Sufficiency, Table Analysis, Graphical Interpretation, and Two-Part Analysis.</p>
+              </div>
+              <div class="drill-meta">
+                <span>320 Bank Questions</span>
+                <button class="btn btn-primary btn-sm">Start Drill →</button>
+              </div>
+            </div>
+
+            <div class="drill-card mistakes" id="card-drill-mistakes">
+              <div>
+                <div class="drill-header">
+                  <span class="drill-icon">🔥</span>
+                  <span class="drill-title">Mistakes Retention Drill</span>
+                </div>
+                <p class="drill-desc">Re-attempt questions you previously answered incorrectly to cement conceptual mastery.</p>
+              </div>
+              <div class="drill-meta">
+                <span id="drill-mistakes-counter">0 Active Mistakes</span>
+                <button class="btn btn-danger btn-sm">Retry Now →</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 2: PRACTICE & EXAM RUNNER SCREEN
+             ========================================================= -->
+        <section class="view-section" id="view-exam-runner">
+          <div class="exam-header-bar">
+            <div class="exam-title-badge">
+              <span id="exam-title-text">Quantitative Reasoning Drill</span>
+              <span class="q-badge q-badge-section" id="exam-mode-badge">Practice Mode</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div class="timer-badge" id="exam-timer-display" title="Section Timer">
+                ⏱️ <span>00:00</span>
+              </div>
+              <button class="btn btn-danger btn-sm" id="btn-end-session">End & Submit</button>
+            </div>
+          </div>
+
+          <div class="question-card-container">
+            <!-- Main Question Box -->
+            <div class="question-box">
+              <div class="question-meta-row">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                  <span class="q-badge q-badge-section" id="q-meta-section">Quantitative Reasoning</span>
+                  <span class="q-badge q-badge-topic" id="q-meta-topic">Arithmetic</span>
+                  <span class="q-badge q-badge-diff" id="q-meta-diff">600-650</span>
+                  <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;" id="q-meta-id">GMAT-0001</span>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                  <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);" id="q-time-spent-badge">Time: 0s</span>
+                  <button class="btn-icon" id="btn-flag-question" title="Flag / Bookmark for review">🚩</button>
+                </div>
+              </div>
+
+              <!-- Question Stem -->
+              <div class="q-stem-text" id="q-stem-container">
+                Loading question stem...
+              </div>
+
+              <!-- Answer Choices A - E -->
+              <div class="options-list" id="options-container">
+                <!-- Dynamically generated options -->
+              </div>
+
+              <!-- Instant Feedback & Solution Box (in Practice Mode) -->
+              <div class="solution-box" id="solution-box" style="display: none;">
+                <h4>💡 Step-by-Step Solution & Reasoning</h4>
+                <div class="solution-text" id="solution-text"></div>
+                <div class="trap-box" id="trap-box">
+                  <strong>⚠️ GMAT Trap Alert:</strong> <span id="trap-text"></span>
+                </div>
+                <!-- Mistake Tag Selector in Practice Mode -->
+                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;" id="mistake-tag-practice-row">
+                  <span style="font-size: 13px; font-weight: 600;">Mistake Reason:</span>
+                  <select class="select-input" id="select-mistake-reason">
+                    <option value="Uncategorized">Select reason...</option>
+                    <option value="Calculation Slip">🔢 Calculation Slip</option>
+                    <option value="Concept / Formula Gap">📐 Concept / Formula Gap</option>
+                    <option value="Fell for Trap Option">🪤 Fell for Trap Option</option>
+                    <option value="Time Pressure">⏱️ Time Pressure / Rushed</option>
+                    <option value="Misread Question">👓 Misread Question Stem</option>
+                    <option value="Lucky Guess">🍀 Lucky Guess / Unsure</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Navigation Footer -->
+              <div class="question-nav-footer">
+                <button class="btn btn-secondary" id="btn-q-prev">← Previous</button>
+                <div style="display: flex; gap: 10px;">
+                  <button class="btn btn-success" id="btn-q-check" style="display: none;">Check Answer</button>
+                  <button class="btn btn-primary" id="btn-q-next">Next Question →</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Question Palette Navigator -->
+            <div class="question-palette">
+              <div style="font-weight: 700; font-size: 14px; display: flex; justify-content: space-between;">
+                <span>Questions</span>
+                <span id="palette-progress">1 / 10</span>
+              </div>
+              <div class="palette-grid" id="palette-grid">
+                <!-- Dynamically populated buttons -->
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; margin-top: 10px;">
+                <div>🔵 Blue = Answered</div>
+                <div>🚩 Red Flag = Bookmarked</div>
+                <div>⚪ White = Unanswered</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 3: RESULTS / SUMMARY SCREEN
+             ========================================================= -->
+        <section class="view-section" id="view-results">
+          <div class="card" style="max-width: 800px; margin: 0 auto; text-align: center; padding: 40px;">
+            <h2 style="font-size: 26px; font-weight: 800; margin-bottom: 8px;">Session Completed! 🎉</h2>
+            <p style="color: var(--text-muted); margin-bottom: 28px;" id="res-session-title">Quantitative Reasoning Drill Summary</p>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px;">
+              <div class="card" style="background-color: var(--bg-card-hover);">
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted);">ACCURACY</div>
+                <div style="font-size: 32px; font-weight: 900; color: var(--primary);" id="res-accuracy-pct">0%</div>
+                <div style="font-size: 12px; color: var(--text-muted);" id="res-correct-fraction">0 / 0 Correct</div>
+              </div>
+
+              <div class="card" style="background-color: var(--bg-card-hover);">
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted);">SCALED SCORE</div>
+                <div style="font-size: 32px; font-weight: 900; color: var(--success);" id="res-scaled-score">--</div>
+                <div style="font-size: 12px; color: var(--text-muted);">GMAT Focus 60-90</div>
+              </div>
+
+              <div class="card" style="background-color: var(--bg-card-hover);">
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted);">AVG PACE</div>
+                <div style="font-size: 32px; font-weight: 900; color: var(--warning);" id="res-avg-time">0s</div>
+                <div style="font-size: 12px; color: var(--text-muted);">Per Question</div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: center; gap: 14px;">
+              <button class="btn btn-danger" id="btn-res-retry-missed">⚡ Retry Missed Questions</button>
+              <button class="btn btn-secondary" id="btn-res-view-error-log">View in Error Log</button>
+              <button class="btn btn-primary" id="btn-res-return-dash">Dashboard</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 4: COMPREHENSIVE ERROR LOG & MISTAKES TRACKER
+             ========================================================= -->
+        <section class="view-section" id="view-error-log">
+          <div class="error-log-toolbar">
+            <div class="filter-group">
+              <input type="text" class="text-input" id="err-search" placeholder="Search question ID or keyword..." style="width: 240px;">
+              
+              <select class="select-input" id="err-filter-section">
+                <option value="All">All Sections</option>
+                <option value="Quantitative Reasoning">Quantitative Reasoning</option>
+                <option value="Verbal Reasoning">Verbal Reasoning</option>
+                <option value="Data Insights">Data Insights</option>
+              </select>
+
+              <select class="select-input" id="err-filter-tag">
+                <option value="All">All Mistake Reasons</option>
+                <option value="Calculation Slip">🔢 Calculation Slip</option>
+                <option value="Concept / Formula Gap">📐 Concept / Formula Gap</option>
+                <option value="Fell for Trap Option">🪤 Fell for Trap Option</option>
+                <option value="Time Pressure">⏱️ Time Pressure</option>
+                <option value="Misread Question">👓 Misread Question</option>
+                <option value="Lucky Guess">🍀 Lucky Guess</option>
+                <option value="Uncategorized">❓ Uncategorized</option>
+              </select>
+
+              <select class="select-input" id="err-filter-outcome">
+                <option value="Incorrect Only">Incorrect Only</option>
+                <option value="All">All Attempts</option>
+                <option value="Correct Only">Correct Only</option>
+              </select>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <button class="btn btn-danger btn-sm" id="btn-err-drill-mistakes">⚡ Retry Filtered Mistakes</button>
+              <button class="btn btn-secondary btn-sm" id="btn-err-export-csv">📥 Export CSV</button>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th style="width: 110px;">Question</th>
+                  <th style="width: 140px;">Section / Topic</th>
+                  <th style="width: 100px;">Answers</th>
+                  <th style="width: 80px;">Pace</th>
+                  <th style="width: 190px;">Mistake Classification</th>
+                  <th>My Reflection / Notes</th>
+                  <th style="width: 80px; text-align: center;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="error-log-tbody">
+                <!-- Dynamically populated rows -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 5: QUESTION BANK BROWSER (1,080 Questions)
+             ========================================================= -->
+        <section class="view-section" id="view-qbank">
+          <div class="error-log-toolbar">
+            <div class="filter-group">
+              <input type="text" class="text-input" id="qb-search" placeholder="Search 1,080 questions..." style="width: 260px;">
+              
+              <select class="select-input" id="qb-filter-section">
+                <option value="All">All Sections (1,080)</option>
+                <option value="Quantitative Reasoning">Quantitative (380)</option>
+                <option value="Verbal Reasoning">Verbal (380)</option>
+                <option value="Data Insights">Data Insights (320)</option>
+              </select>
+
+              <select class="select-input" id="qb-filter-diff">
+                <option value="All">All Difficulties</option>
+                <option value="550-600">550-600 (Medium)</option>
+                <option value="600-650">600-650 (Medium-Hard)</option>
+                <option value="650-700">650-700 (Hard)</option>
+                <option value="700-750">700-750 (Elite 700+)</option>
+              </select>
+
+              <select class="select-input" id="qb-filter-status">
+                <option value="All">All Statuses</option>
+                <option value="Unsolved">Unsolved Only</option>
+                <option value="Correct">Solved Correct</option>
+                <option value="Incorrect">Solved Incorrect</option>
+                <option value="Bookmarked">Bookmarked 🚩</option>
+              </select>
+            </div>
+            <div>
+              <span style="font-weight: 700; font-size: 13.5px; color: var(--text-muted);" id="qb-count-label">Showing 1080 questions</span>
+            </div>
+          </div>
+
+          <div class="qbank-grid" id="qbank-list-container">
+            <!-- Dynamically populated cards -->
+          </div>
+
+          <!-- Pagination -->
+          <div style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px;">
+            <button class="btn btn-secondary btn-sm" id="qb-prev-page">← Previous</button>
+            <span style="font-size: 13px; font-weight: 600;" id="qb-page-indicator">Page 1 of 54</span>
+            <button class="btn btn-secondary btn-sm" id="qb-next-page">Next →</button>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 6: FORMULA VAULT & STRATEGY FLASHCARDS
+             ========================================================= -->
+        <section class="view-section" id="view-formulas">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <h2 style="font-size: 22px; font-weight: 800;">GMAT Core Strategy & Formula Vault</h2>
+            <p style="color: var(--text-muted); font-size: 14px;">High-yield rules, shortcuts, elimination trees, and idioms.</p>
+          </div>
+
+          <div class="flashcard-wrapper">
+            <div class="flashcard-box" id="flashcard-element">
+              <div>
+                <div class="flashcard-cat" id="fc-category">Quant - Algebra</div>
+                <div class="flashcard-title" id="fc-title">Difference of Squares</div>
+                <div class="flashcard-formula" id="fc-formula">a² - b² = (a + b)(a - b)</div>
+                <div class="flashcard-notes" id="fc-notes">Frequently tested in factoring questions.</div>
+              </div>
+              <div style="font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 14px;">
+                🔄 Click card to flip / reveal details
+              </div>
+            </div>
+
+            <div class="flashcard-controls" style="margin-top: 20px;">
+              <button class="btn btn-secondary" id="fc-prev-btn">← Prev Card</button>
+              <span style="font-size: 13px; font-weight: 700;" id="fc-index-label">1 / 10</span>
+              <button class="btn btn-secondary" id="fc-next-btn">Next Card →</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 7: ANALYTICS & PERFORMANCE
+             ========================================================= -->
+        <section class="view-section" id="view-analytics">
+          <div class="metrics-grid">
+            <div class="card">
+              <div class="metric-title">Estimated Focus Score</div>
+              <div class="metric-number" style="color: var(--primary);" id="ana-focus-score">--</div>
+              <div class="metric-subtext">Calibrated on official 205-805 scale</div>
+            </div>
+
+            <div class="card">
+              <div class="metric-title">Quant Scaled Score</div>
+              <div class="metric-number" style="color: #3b82f6;" id="ana-quant-score">--</div>
+              <div class="metric-subtext">Scale: 60 - 90</div>
+            </div>
+
+            <div class="card">
+              <div class="metric-title">Verbal Scaled Score</div>
+              <div class="metric-number" style="color: #8b5cf6;" id="ana-verbal-score">--</div>
+              <div class="metric-subtext">Scale: 60 - 90</div>
+            </div>
+
+            <div class="card">
+              <div class="metric-title">Data Insights Score</div>
+              <div class="metric-number" style="color: #10b981;" id="ana-di-score">--</div>
+              <div class="metric-subtext">Scale: 60 - 90</div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
+            <!-- Topic Weakness & Mastery Matrix -->
+            <div class="card">
+              <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 16px;">Subtopic Mastery Matrix</h3>
+              <div id="ana-topic-list" style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto;">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Error Classification Breakdown -->
+            <div class="card">
+              <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 16px;">Mistake Root Cause Breakdown</h3>
+              <div id="ana-mistake-breakdown" style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 8: SETTINGS & BACKUP
+             ========================================================= -->
+        <section class="view-section" id="view-settings">
+          <div class="card" style="max-width: 650px; margin: 0 auto;">
+            <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 20px;">Settings & Data Management</h2>
+            
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <div>
+                <label style="font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 6px;">Visual Theme Mode</label>
+                <select class="select-input" id="setting-theme-select" style="width: 100%;">
+                  <option value="light">Modern Light Theme</option>
+                  <option value="dark">Obsidian Dark Theme</option>
+                  <option value="official-gmat">Official GMAT Test UI Theme</option>
+                </select>
+              </div>
+
+              <!-- Master PIN Security Lock -->
+              <div style="padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <label style="font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 6px;">🔒 Master PIN / Password Lock (For Online Privacy)</label>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Protect your question bank, error log, and scores with a personal PIN code when accessing online.</p>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                  <input type="password" class="text-input" id="input-set-pin" placeholder="Enter new 4-digit PIN..." style="max-width: 220px;">
+                  <button class="btn btn-secondary btn-sm" id="btn-save-pin">Set PIN</button>
+                  <button class="btn btn-danger btn-sm" id="btn-remove-pin">Disable PIN</button>
+                </div>
+                <div style="font-size: 12px; color: var(--success); margin-top: 6px;" id="pin-status-label"></div>
+              </div>
+
+              <!-- Private GitHub Cloud Sync -->
+              <div style="padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <label style="font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 6px;">☁️ Automatic Cloud Sync via Private GitHub Gist</label>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Sync all your answers, mistakes, and reflection notes across your phone, tablet, and laptop seamlessly for free.</p>
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+                  <input type="password" class="text-input" id="input-github-token" placeholder="GitHub Personal Access Token (classic with 'gist' scope)..." style="width: 100%;">
+                  <input type="text" class="text-input" id="input-gist-id" placeholder="Gist ID (leave blank to auto-create on first sync)..." style="width: 100%;">
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button class="btn btn-primary btn-sm" id="btn-sync-to-github">⬆️ Upload & Sync to GitHub</button>
+                  <button class="btn btn-secondary btn-sm" id="btn-sync-from-github">⬇️ Pull from GitHub</button>
+                </div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;" id="github-sync-status"></div>
+              </div>
+
+              <div style="padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <label style="font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 6px;">Export / Backup Study History</label>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Download full JSON backup of all your attempts, error log notes, and quiz sessions.</p>
+                <button class="btn btn-secondary btn-sm" id="btn-export-backup">💾 Export Complete Backup (JSON)</button>
+              </div>
+
+              <div style="padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <label style="font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 6px;">Restore / Import Backup</label>
+                <input type="file" id="import-file-input" accept=".json" style="font-size: 13px;">
+              </div>
+
+              <div style="padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <label style="font-size: 13.5px; font-weight: 600; color: var(--danger); display: block; margin-bottom: 6px;">Reset All Progress</label>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Permanently clear all historical attempts, notes, and session logs.</p>
+                <button class="btn btn-danger btn-sm" id="btn-clear-database">⚠️ Clear All History</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       POPUP MODALS
+       ========================================================= -->
+
+  <!-- Question Detail & Mistake Inspector Modal -->
+  <div class="modal-overlay" id="modal-question-detail">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="modal-title" id="modal-q-id">GMAT-0001</span>
+          <span class="q-badge q-badge-section" id="modal-q-section">Quant</span>
+        </div>
+        <button class="modal-close-btn" id="btn-close-qmodal">✕</button>
+      </div>
+      <div class="q-stem-text" id="modal-q-stem"></div>
+      <div class="options-list" id="modal-q-options"></div>
+      <div class="solution-box" style="display: block;">
+        <h4>💡 Detailed Explanation</h4>
+        <div class="solution-text" id="modal-q-explanation"></div>
+        <div class="trap-box" id="modal-q-trap-box">
+          <strong>⚠️ Trap Alert:</strong> <span id="modal-q-trap"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Quiz Setup Modal -->
+  <div class="modal-overlay" id="modal-custom-quiz">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <span class="modal-title">Configure Practice Quiz</span>
+        <button class="modal-close-btn" id="btn-close-quizmodal">✕</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div>
+          <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Target Section</label>
+          <select class="select-input" id="quiz-opt-section" style="width: 100%;">
+            <option value="All">Mixed All Sections</option>
+            <option value="Quantitative Reasoning">Quantitative Reasoning</option>
+            <option value="Verbal Reasoning">Verbal Reasoning</option>
+            <option value="Data Insights">Data Insights</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Difficulty Tier</label>
+          <select class="select-input" id="quiz-opt-diff" style="width: 100%;">
+            <option value="All">All Difficulties</option>
+            <option value="550-600">550-600 (Medium)</option>
+            <option value="600-650">600-650 (Medium-Hard)</option>
+            <option value="650-700">650-700 (Hard)</option>
+            <option value="700-750">700-750 (Elite 700+)</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Question Count</label>
+          <select class="select-input" id="quiz-opt-count" style="width: 100%;">
+            <option value="5">5 Questions (Quick Drill)</option>
+            <option value="10" selected>10 Questions (Standard Drill)</option>
+            <option value="20">20 Questions (Extended Section)</option>
+            <option value="30">30 Questions (Intense Drill)</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Practice Mode</label>
+          <select class="select-input" id="quiz-opt-mode" style="width: 100%;">
+            <option value="practice">Instant Practice (Immediate Solutions)</option>
+            <option value="exam">Timed Exam Simulation (2 min/question)</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" id="btn-start-custom-quiz" style="margin-top: 10px;">Launch Quiz →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- On-Screen Floating Calculator -->
+  <div class="calc-popup" id="calc-popup">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">GMAT Calculator (DI)</span>
+      <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);" id="btn-close-calc">✕</button>
+    </div>
+    <input type="text" class="calc-display" id="calc-display" value="0" readonly>
+    <div class="calc-grid">
+      <button class="calc-btn" data-calc="C">C</button>
+      <button class="calc-btn" data-calc="sqrt">√</button>
+      <button class="calc-btn op" data-calc="/">÷</button>
+      <button class="calc-btn op" data-calc="*">×</button>
+      <button class="calc-btn" data-calc="7">7</button>
+      <button class="calc-btn" data-calc="8">8</button>
+      <button class="calc-btn" data-calc="9">9</button>
+      <button class="calc-btn op" data-calc="-">-</button>
+      <button class="calc-btn" data-calc="4">4</button>
+      <button class="calc-btn" data-calc="5">5</button>
+      <button class="calc-btn" data-calc="6">6</button>
+      <button class="calc-btn op" data-calc="+">+</button>
+      <button class="calc-btn" data-calc="1">1</button>
+      <button class="calc-btn" data-calc="2">2</button>
+      <button class="calc-btn" data-calc="3">3</button>
+      <button class="calc-btn op" data-calc="=" style="grid-row: span 2; background-color: var(--primary); color: #fff;">=</button>
+      <button class="calc-btn" data-calc="0" style="grid-column: span 2;">0</button>
+      <button class="calc-btn" data-calc=".">.</button>
+    </div>
+  </div>
+
+  <!-- Scratchpad Floating Note Box -->
+  <div class="calc-popup" id="scratchpad-popup" style="width: 320px; right: 80px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Quick Scratchpad</span>
+      <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);" id="btn-close-scratchpad">✕</button>
+    </div>
+    <textarea id="scratchpad-textarea" style="width: 100%; height: 180px; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background-color: var(--bg-card-hover); color: var(--text-main); font-family: var(--font-mono); font-size: 13px; outline: none; resize: vertical;" placeholder="Jot down notes, arithmetic steps, or reasoning..."></textarea>
+  </div>
+
+  <!-- Master PIN Lock Screen Modal -->
+  <div class="modal-overlay" id="modal-pin-lock" style="z-index: 200;">
+    <div class="modal-card" style="max-width: 380px; text-align: center; padding: 36px 28px;">
+      <div style="font-size: 40px; margin-bottom: 12px;">🔒</div>
+      <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 8px;">Enter PIN to Unlock</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">This GMAT Prep session is password-protected.</p>
+      
+      <input type="password" class="text-input" id="input-unlock-pin" placeholder="Enter PIN code..." style="text-align: center; font-size: 20px; letter-spacing: 4px; width: 100%; margin-bottom: 16px;">
+      <button class="btn btn-primary" id="btn-unlock-app" style="width: 100%;">Unlock GMAT PrepMaster →</button>
+      <div style="font-size: 12px; color: var(--danger); margin-top: 10px;" id="pin-error-msg"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- App Scripts -->
+  <script src="./js/db.js"></script>
+  <script src="./js/cloudSync.js"></script>
+  <script src="./js/questions.js"></script>
+  <script src="./js/examEngine.js"></script>
+  <script src="./js/errorLog.js"></script>
+  <script src="./js/analytics.js"></script>
+  <script src="./js/formulas.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
