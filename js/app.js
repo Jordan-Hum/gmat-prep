@@ -43,8 +43,13 @@
     return { q: {}, exams: [], cards: {}, dates: Object.assign({}, DEFAULT_DATES), track: "cire", session: null };
   }
   let S = load();
-  function save() {
+  // Cloud sync settings for this device (see "Cloud sync" below). Null when sync isn't set up here.
+  const SYNC_KEY = "ciro-sync-v1";
+  let sync = null;
+  try { sync = JSON.parse(localStorage.getItem(SYNC_KEY)); } catch (e) { /* ignore */ }
+  function save(quiet) {
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ }
+    if (sync && !quiet) scheduleSync();
   }
 
   function record(qid, correct) {
@@ -235,6 +240,7 @@
           <a class="btn small" href="#/backup">💾 Back up / restore</a>
           <button class="btn small" id="reset">Reset all progress</button>
         </div>
+        <p class="muted" id="sync-status" style="margin:10px 0 0">${syncStatusText()}</p>
         ${lastExam ? `<p class="muted" style="margin-bottom:0">Last ${ex.name} mock: ${pct(lastExam.score, lastExam.total)}% (${lastExam.score}/${lastExam.total}) on ${new Date(lastExam.date).toLocaleDateString()}</p>` : ""}
       </div>`;
 
@@ -247,7 +253,7 @@
     document.getElementById("exam-date").onchange = e => { S.dates[S.track] = e.target.value; save(); render(); };
     document.getElementById("reset").onclick = () => {
       if (confirm("Erase all answers, mock exam history and flashcard progress (for both CIRE and RSE)?")) {
-        const d = S.dates, t = S.track; S = fresh(); S.dates = d; S.track = t; save(); render();
+        const d = S.dates, t = S.track; S = fresh(); S.dates = d; S.track = t; save(true); render(); syncReplace();
       }
     };
   };
@@ -724,7 +730,7 @@
     return d;
   }
   // Merge instead of overwrite, so restoring never loses work done on this device.
-  function mergeBackup(d) {
+  function mergeBackup(d, quiet) {
     let added = 0, updated = 0;
     for (const [id, r] of Object.entries(d.q || {})) {
       const mine = S.q[id];
@@ -740,8 +746,240 @@
     S.exams.sort((a, b) => a.date - b.date);
     Object.assign(S.cards, d.cards || {});
     for (const [k, v] of Object.entries(d.dates || {})) if (v && !S.dates[k]) S.dates[k] = v;
-    save();
+    save(quiet);
     return { added, updated, exams };
+  }
+
+  // ----- Cloud sync -----
+  // Progress is kept in progress.json on a separate "progress" branch of the site's GitHub repo, so
+  // it never touches the live site. Writing needs a GitHub token; the token is stored in sync.json on
+  // the main branch, encrypted with a password (PBKDF2 + AES-GCM), so a new device only needs the password.
+  const SYNC_BRANCH = "progress", SYNC_PATH = "progress.json", SYNC_CONFIG = "sync.json";
+  const SYNC_DELAY = 20000;
+  let syncTimer = null, syncBusy = false, syncAgain = false;
+  let syncState = { status: sync ? "idle" : "off", error: "" };
+
+  function saveSyncSettings() {
+    try { sync ? localStorage.setItem(SYNC_KEY, JSON.stringify(sync)) : localStorage.removeItem(SYNC_KEY); } catch (e) { /* ignore */ }
+  }
+  // owner/repo from the GitHub Pages address, e.g. jordan-hum.github.io/ciro-prep/ → jordan-hum / ciro-prep
+  function repoFromLocation() {
+    const m = location.hostname.match(/^([^.]+)\.github\.io$/i);
+    if (!m) return null;
+    const first = location.pathname.split("/").filter(Boolean)[0];
+    return { owner: m[1], repo: first || m[1] + ".github.io" };
+  }
+  function b64encode(str) {
+    let bin = "";
+    new TextEncoder().encode(str).forEach(b => { bin += String.fromCharCode(b); });
+    return btoa(bin);
+  }
+  function b64decode(b64) {
+    const bin = atob(String(b64).replace(/\s+/g, ""));
+    return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+  }
+  const bytesToB64 = u8 => btoa(String.fromCharCode(...u8));
+  const b64ToBytes = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+
+  async function deriveKey(password, salt) {
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" },
+      base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  }
+  async function encryptToken(token, password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(password, salt);
+    const data = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(token)));
+    return { salt: bytesToB64(salt), iv: bytesToB64(iv), token: bytesToB64(data) };
+  }
+  async function decryptToken(cfg, password) {
+    const key = await deriveKey(password, b64ToBytes(cfg.salt));
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToBytes(cfg.iv) }, key, b64ToBytes(cfg.token));
+    return new TextDecoder().decode(plain);
+  }
+
+  async function gh(method, path, body, opts) {
+    const res = await fetch("https://api.github.com" + path, {
+      method, cache: "no-store", keepalive: !!(opts && opts.keepalive),
+      headers: Object.assign({ Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+        opts && opts.token ? { Authorization: "Bearer " + opts.token } : {},
+        body ? { "Content-Type": "application/json" } : {}),
+      body: body ? JSON.stringify(body) : undefined
+    });
+    let json = null;
+    try { json = await res.json(); } catch (e) { /* empty body */ }
+    return { status: res.status, ok: res.ok, json };
+  }
+  const repoPath = (cfg, rest) => `/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}${rest}`;
+
+  // The shared config (encrypted token + repo). Served by the site itself, with the API as a fallback.
+  async function fetchSyncConfig() {
+    try {
+      const r = await fetch(SYNC_CONFIG, { cache: "no-store" });
+      if (r.ok) { const c = await r.json(); if (c && c.token) return c; }
+    } catch (e) { /* not published yet */ }
+    const loc = repoFromLocation();
+    if (!loc) return null;
+    const r = await gh("GET", repoPath(loc, "/contents/" + SYNC_CONFIG));
+    if (r.ok && r.json && r.json.content) { try { return JSON.parse(b64decode(r.json.content)); } catch (e) { /* bad file */ } }
+    return null;
+  }
+
+  // Compact file format ({id: [attempts, correct, lastRight, time]}) keeps saves small enough to finish
+  // even as the tab closes (browsers cap those at 64 KB).
+  function packProgress(d) {
+    const q = {};
+    for (const [id, r] of Object.entries(d.q || {})) q[id] = [r.a || 0, r.c || 0, r.last ? 1 : 0, r.ts || 0];
+    return { v: 2, saved: Date.now(), q, exams: d.exams || [], cards: d.cards || {}, dates: d.dates || {} };
+  }
+  function unpackProgress(d) {
+    if (!d || d.v !== 2) return d;
+    const q = {};
+    for (const [id, r] of Object.entries(d.q || {})) q[id] = { a: r[0], c: r[1], last: r[2], ts: r[3] };
+    return Object.assign({}, d, { q });
+  }
+
+  async function readRemote() {
+    const r = await gh("GET", repoPath(sync, `/contents/${SYNC_PATH}?ref=${SYNC_BRANCH}`), null, { token: sync.token });
+    if (r.status === 404) return { data: null, sha: null };
+    if (!r.ok) throw syncHttpError(r);
+    return { data: unpackProgress(JSON.parse(b64decode(r.json.content))), sha: r.json.sha };
+  }
+  async function createSyncBranch() {
+    const repo = await gh("GET", repoPath(sync, ""), null, { token: sync.token });
+    if (!repo.ok) throw syncHttpError(repo);
+    const head = await gh("GET", repoPath(sync, "/git/ref/heads/" + encodeURIComponent(repo.json.default_branch)), null, { token: sync.token });
+    if (!head.ok) throw syncHttpError(head);
+    const made = await gh("POST", repoPath(sync, "/git/refs"), { ref: "refs/heads/" + SYNC_BRANCH, sha: head.json.object.sha }, { token: sync.token });
+    if (!made.ok && made.status !== 422) throw syncHttpError(made); // 422 = it already exists
+  }
+  // Returns "ok" or "conflict" (someone else saved first).
+  async function writeRemote(data, sha, keepalive) {
+    const body = { message: "Save study progress", content: b64encode(JSON.stringify(packProgress(data))), branch: SYNC_BRANCH };
+    if (sha) body.sha = sha;
+    if (keepalive && JSON.stringify(body).length > 60000) keepalive = false;
+    let r = await gh("PUT", repoPath(sync, "/contents/" + SYNC_PATH), body, { token: sync.token, keepalive });
+    if (r.status === 404 && !keepalive) { await createSyncBranch(); r = await gh("PUT", repoPath(sync, "/contents/" + SYNC_PATH), body, { token: sync.token }); }
+    if (r.status === 409 || r.status === 422) return "conflict";
+    if (!r.ok) throw syncHttpError(r);
+    sync.sha = r.json.content.sha; saveSyncSettings();
+    return "ok";
+  }
+  function syncHttpError(r) {
+    const e = new Error(r.status === 401 ? "The GitHub token has expired or was revoked. Set up sync again with a new token."
+      : r.status === 403 || r.status === 404 ? "The GitHub token doesn't have access to this repo's contents."
+      : "GitHub returned an error (" + r.status + ").");
+    e.status = r.status;
+    return e;
+  }
+
+  // Key-order-independent JSON, to compare local and remote progress.
+  function stable(v) {
+    if (Array.isArray(v)) return "[" + v.map(stable).join(",") + "]";
+    if (v && typeof v === "object") return "{" + Object.keys(v).sort().map(k => JSON.stringify(k) + ":" + stable(v[k])).join(",") + "}";
+    return JSON.stringify(v);
+  }
+  const progressOf = d => stable({ q: d.q || {}, exams: d.exams || [], cards: d.cards || {}, dates: d.dates || {} });
+
+  function setSyncStatus(status, error) {
+    syncState = { status, error: error || "" };
+    const el = document.getElementById("sync-status");
+    if (el) el.innerHTML = syncStatusText();
+  }
+  function syncStatusText() {
+    if (!sync) return `☁️ Sync is off on this device. <a href="#/backup">Turn it on</a>`;
+    if (syncState.status === "syncing") return "☁️ Syncing…";
+    if (syncState.status === "error") return `⚠️ Sync problem: ${esc(syncState.error)} <a href="#/backup">Fix</a>`;
+    if (sync.last) {
+      const mins = Math.round((Date.now() - sync.last) / 60000);
+      return `☁️ Progress saved to GitHub ${mins < 1 ? "just now" : mins === 1 ? "1 minute ago" : mins < 60 ? mins + " minutes ago" : new Date(sync.last).toLocaleString()}`;
+    }
+    return "☁️ Sync is on";
+  }
+
+  function scheduleSync(delay) {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => { syncTimer = null; syncNow(); }, delay == null ? SYNC_DELAY : delay);
+  }
+  // Pull the saved progress, merge it in, and push the result if anything differs.
+  async function syncNow() {
+    if (!sync) return;
+    if (syncBusy) { syncAgain = true; return; }
+    syncBusy = true; clearTimeout(syncTimer); syncTimer = null;
+    setSyncStatus("syncing");
+    let gotNew = false;
+    try {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { data, sha } = await readRemote();
+        sync.sha = sha;
+        if (data) {
+          const r = mergeBackup(data, true);
+          if (r.added || r.updated || r.exams) gotNew = true;
+          if (progressOf(data) === progressOf(backupData())) break; // already identical
+        }
+        if (await writeRemote(backupData(), sha) === "ok") break;
+      }
+      sync.last = Date.now(); saveSyncSettings();
+      setSyncStatus("ok");
+      // Show newly pulled progress, but never interrupt a quiz in progress.
+      if (gotNew && !/^#\/?(quiz|results)/.test(location.hash)) render();
+    } catch (e) {
+      setSyncStatus("error", e.message || "Couldn't reach GitHub.");
+    } finally {
+      syncBusy = false;
+      if (syncAgain) { syncAgain = false; scheduleSync(2000); }
+    }
+  }
+  // Leaving the page: push right away (keepalive lets the request finish after the tab closes).
+  function flushSync() {
+    if (!sync || !syncTimer || syncBusy) return;
+    clearTimeout(syncTimer); syncTimer = null;
+    writeRemote(backupData(), sync.sha, true).then(r => { if (r === "ok") { sync.last = Date.now(); saveSyncSettings(); } }).catch(() => {});
+  }
+  // After "Reset all progress": overwrite the saved copy instead of merging the old progress back in.
+  async function syncReplace() {
+    if (!sync) return;
+    try {
+      const { sha } = await readRemote();
+      await writeRemote(backupData(), sha);
+      sync.last = Date.now(); saveSyncSettings(); setSyncStatus("ok");
+    } catch (e) { setSyncStatus("error", e.message); }
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushSync();
+    else if (sync && (!sync.last || Date.now() - sync.last > 60000)) syncNow();
+  });
+  window.addEventListener("pagehide", flushSync);
+
+  // First-time setup (done once, by whoever creates the token): check the token, then publish the
+  // encrypted config and the first copy of the progress.
+  async function setupSync(token, password, owner, repo) {
+    sync = { owner, repo, token };
+    const check = await gh("GET", repoPath(sync, "/contents/README.md"), null, { token });
+    if (check.status === 401) { sync = null; throw new Error("GitHub didn't accept that token. Check you copied all of it."); }
+    if (!check.ok && check.status !== 404) { sync = null; throw new Error("That token can't read the " + owner + "/" + repo + " repo."); }
+    const enc = await encryptToken(token, password);
+    const cfg = { v: 1, owner, repo, salt: enc.salt, iv: enc.iv, token: enc.token };
+    const existing = await gh("GET", repoPath(sync, "/contents/" + SYNC_CONFIG), null, { token });
+    const put = await gh("PUT", repoPath(sync, "/contents/" + SYNC_CONFIG),
+      Object.assign({ message: "Set up progress sync (encrypted token)", content: b64encode(JSON.stringify(cfg, null, 2)) },
+        existing.ok ? { sha: existing.json.sha } : {}), { token });
+    if (!put.ok) { sync = null; throw new Error(put.status === 403 || put.status === 404
+      ? "The token needs 'Contents: Read and write' permission on this repo." : "GitHub returned an error (" + put.status + ")."); }
+    saveSyncSettings();
+    await syncNow();
+  }
+  async function connectSync(cfg, password) {
+    let token;
+    try { token = await decryptToken(cfg, password); } catch (e) { throw new Error("Wrong password."); }
+    const loc = repoFromLocation();
+    sync = { owner: loc ? loc.owner : cfg.owner, repo: loc ? loc.repo : cfg.repo, token };
+    saveSyncSettings();
+    await syncNow();
+  }
+  function disconnectSync() {
+    clearTimeout(syncTimer);
+    sync = null; saveSyncSettings(); setSyncStatus("off");
   }
 
   views.backup = function () {
@@ -749,9 +987,14 @@
     const code = toCode(backupData());
     $app.innerHTML = `
       <a href="#/" class="muted">← Home</a>
-      <h1>Back up & restore</h1>
-      <p class="sub">Progress is saved only in this browser. To move it to another phone or computer, save a backup here and restore it there. Restoring <b>adds</b> the backup to what's already on that device (for each question, the most recent answer wins), so nothing gets lost.</p>
+      <h1>Save & sync progress</h1>
+      <p class="sub">Turn on automatic saving to continue on any device, or move progress by hand with a backup file.</p>
 
+      <h2 style="margin-top:8px">☁️ Save automatically</h2>
+      <div class="card" id="cloud"><p class="muted" style="margin:0">Checking sync…</p></div>
+
+      <h2>💾 Manual backup</h2>
+      <p class="sub">Restoring <b>adds</b> the backup to what's already on that device (for each question, the most recent answer wins), so nothing gets lost.</p>
       <div class="card">
         <b>1. Save a backup from this device</b>
         <p class="muted" style="margin:4px 0 12px">This device has ${nQ} answered question${nQ === 1 ? "" : "s"} and ${S.exams.length} mock exam${S.exams.length === 1 ? "" : "s"}.</p>
@@ -808,7 +1051,96 @@
       rd.readAsText(f);
     };
     document.getElementById("paste-restore").onclick = () => restore(document.getElementById("code-in").value);
+    drawCloud();
   };
+
+  // The automatic-sync card on the Backup page: connected / enter password / first-time setup.
+  async function drawCloud(forceSetup) {
+    const el = document.getElementById("cloud");
+    if (!el) return;
+    const note = (id) => `<p id="${id}" class="mt" role="status" style="margin-bottom:0"></p>`;
+    const say = (id, ok, text) => { const m = document.getElementById(id); if (m) { m.innerHTML = text; m.style.color = ok ? "var(--good)" : "var(--bad)"; } };
+
+    if (sync && !forceSetup) {
+      el.innerHTML = `
+        <p style="margin:0 0 4px"><b>Sync is on for this device.</b></p>
+        <p class="muted" id="sync-status" style="margin:0 0 12px">${syncStatusText()}</p>
+        <p class="muted" style="margin:0 0 12px;font-size:14px">Progress saves to <code>${esc(SYNC_PATH)}</code> on the <code>${esc(SYNC_BRANCH)}</code> branch of <b>${esc(sync.owner)}/${esc(sync.repo)}</b> about ${SYNC_DELAY / 1000} seconds after each answer, and when you leave the page.</p>
+        <div class="row">
+          <button class="btn primary" id="sync-now">Sync now</button>
+          <button class="btn" id="sync-off">Turn off on this device</button>
+          <button class="btn small" id="sync-redo">Use a new token</button>
+        </div>`;
+      document.getElementById("sync-now").onclick = () => syncNow();
+      document.getElementById("sync-off").onclick = () => { disconnectSync(); drawCloud(); };
+      document.getElementById("sync-redo").onclick = () => drawCloud(true);
+      return;
+    }
+
+    let cfg = null;
+    if (!forceSetup) { try { cfg = await fetchSyncConfig(); } catch (e) { /* offline */ } }
+    if (cfg) {
+      el.innerHTML = `
+        <p style="margin:0 0 4px"><b>Sync is set up. Enter the sync password to turn it on for this device.</b></p>
+        <p class="muted" style="margin:0 0 12px">You only need to do this once per device or browser.</p>
+        <div class="row">
+          <input type="password" id="pw" placeholder="Sync password" autocomplete="current-password" style="flex:1;min-width:200px">
+          <button class="btn primary" id="connect">Turn on sync</button>
+        </div>
+        ${note("cloud-msg")}
+        <p style="margin:12px 0 0;font-size:14px"><a href="#" id="to-setup">Set up again with a new token</a></p>`;
+      const go = async () => {
+        const btn = document.getElementById("connect");
+        btn.disabled = true; say("cloud-msg", true, "Unlocking…");
+        try { await connectSync(cfg, document.getElementById("pw").value); drawCloud(); }
+        catch (e) { say("cloud-msg", false, esc(e.message)); btn.disabled = false; }
+      };
+      document.getElementById("connect").onclick = go;
+      document.getElementById("pw").onkeydown = e => { if (e.key === "Enter") go(); };
+      document.getElementById("to-setup").onclick = e => { e.preventDefault(); drawCloud(true); };
+      return;
+    }
+
+    const loc = repoFromLocation() || (sync ? { owner: sync.owner, repo: sync.repo } : { owner: "", repo: "" });
+    el.innerHTML = `
+      <p style="margin:0 0 8px"><b>One-time setup</b> (whoever owns the GitHub repo does this once):</p>
+      <ol style="margin:0 0 12px;padding-left:22px">
+        <li>On GitHub, open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Settings → Developer settings → Fine-grained tokens → Generate new token</a>.</li>
+        <li>Name it “CIRO Prep sync”, and set an expiration that lasts past both exams.</li>
+        <li>Under <b>Repository access</b>, choose <b>Only select repositories</b> and pick <b>${esc(loc.repo || "this site's repo")}</b>.</li>
+        <li>Under <b>Permissions → Repository permissions</b>, set <b>Contents</b> to <b>Read and write</b>. Nothing else is needed.</li>
+        <li>Generate the token, copy it (it starts with <code>github_pat_</code>) and paste it below.</li>
+      </ol>
+      <div class="grid grid-2">
+        <label class="field" style="margin:0">GitHub owner<input id="s-owner" value="${esc(loc.owner)}" class="text-in"></label>
+        <label class="field" style="margin:0">Repository<input id="s-repo" value="${esc(loc.repo)}" class="text-in"></label>
+      </div>
+      <label class="field">Token<input id="s-token" type="password" placeholder="github_pat_…" autocomplete="off" class="text-in"></label>
+      <div class="grid grid-2">
+        <label class="field" style="margin:0">Choose a sync password<input id="s-pw" type="password" autocomplete="new-password" class="text-in"></label>
+        <label class="field" style="margin:0">Repeat password<input id="s-pw2" type="password" autocomplete="new-password" class="text-in"></label>
+      </div>
+      <p class="muted" style="font-size:14px;margin:12px 0">The token is saved in the repo only in encrypted form, locked with this password, and each device needs the password once. Because the repo is public, use a long password (at least 12 characters, e.g. four random words). The progress file itself (just answer stats) will also be visible in the repo.</p>
+      <div class="row">
+        <button class="btn primary" id="s-go">Set up sync</button>
+        ${sync || forceSetup ? `<button class="btn" id="s-cancel">Cancel</button>` : ""}
+      </div>
+      ${note("cloud-msg")}`;
+    const cancel = document.getElementById("s-cancel");
+    if (cancel) cancel.onclick = () => drawCloud();
+    document.getElementById("s-go").onclick = async () => {
+      const v = id => document.getElementById(id).value.trim();
+      const owner = v("s-owner"), repo = v("s-repo"), token = v("s-token"), pw = document.getElementById("s-pw").value;
+      if (!owner || !repo) return say("cloud-msg", false, "Enter the GitHub owner and repository.");
+      if (!/^(github_pat_|ghp_)/.test(token)) return say("cloud-msg", false, "That doesn't look like a GitHub token (it should start with github_pat_).");
+      if (pw.length < 12) return say("cloud-msg", false, "Use a password of at least 12 characters.");
+      if (pw !== document.getElementById("s-pw2").value) return say("cloud-msg", false, "The passwords don't match.");
+      const btn = document.getElementById("s-go");
+      btn.disabled = true; say("cloud-msg", true, "Setting up…");
+      try { await setupSync(token, pw, owner, repo); drawCloud(); }
+      catch (e) { say("cloud-msg", false, esc(e.message)); btn.disabled = false; }
+    };
+  }
 
   views.glossary = function () {
     $app.innerHTML = `
@@ -852,4 +1184,5 @@
   }
   window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
   render();
+  if (sync) syncNow();
 })();

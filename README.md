@@ -9,7 +9,8 @@ A static study site for the CIRO licensing exam. It has no build step and no ser
 - **Study notes** for every topic, with formulas and common exam traps.
 - **Timed mock exams** for each track: full-length (CIRE 110 questions / 2 h, RSE 120 questions / 3 h), half and quick 25. All are weighted by section and paced like the real exam, with a question grid, flagging and a full review.
 - **Smart practice**: "Quick 20" puts unseen and missed questions first. You can also redo just the ones you got wrong.
-- **Backup & restore**: progress lives in the browser, so the Backup page exports it as a file or a copy-paste code and merges it into another device.
+- **Automatic sync across devices**: progress saves to `progress.json` on the `progress` branch of this repo (never the live site's branch) via the GitHub API. Setup is one-time on the "Save & sync" page: paste a fine-grained token (this repo only, Contents read/write) and pick a password. The token is stored in `sync.json` encrypted with that password (PBKDF2 + AES-GCM), so other devices just enter the password. Devices merge progress, with the newest answer per question winning.
+- **Manual backup & restore**: export progress as a file or copy-paste code and merge it into another device.
 - **165 flashcards** and a searchable **glossary**.
 - **Progress tracking** by topic, an exam-day countdown and a daily study tip. Progress is saved in the browser's localStorage.
 
