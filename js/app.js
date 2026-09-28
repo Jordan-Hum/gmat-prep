@@ -19,7 +19,7 @@
     }
   }
   const QMAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
-  const DEFAULT_EXAM_DATE = "2026-10-08";
+  const DEFAULT_DATES = { cire: "2026-10-08", rse: "" };
   const PASS_MARK = 0.6;
   const SECONDS_PER_EXAM_Q = 90;
 
@@ -28,12 +28,19 @@
   function load() {
     try {
       const s = JSON.parse(localStorage.getItem(KEY));
-      if (s && typeof s === "object") return Object.assign(fresh(), s);
+      if (s && typeof s === "object") {
+        const st = Object.assign(fresh(), s);
+        // Older saves had a single exam date; that was the CIRE date.
+        if (s.examDate && !s.dates) st.dates = { cire: s.examDate, rse: "" };
+        delete st.examDate;
+        if (!window.EXAMS[st.track]) st.track = "cire";
+        return st;
+      }
     } catch (e) { /* ignore */ }
     return fresh();
   }
   function fresh() {
-    return { q: {}, exams: [], cards: {}, examDate: DEFAULT_EXAM_DATE, session: null };
+    return { q: {}, exams: [], cards: {}, dates: Object.assign({}, DEFAULT_DATES), track: "cire", session: null };
   }
   let S = load();
   function save() {
@@ -57,8 +64,15 @@
     return a;
   }
   function barClass(p) { return p >= 75 ? "good" : p >= 60 ? "warn" : "bad"; }
+  // ---------- Exam track (CIRE or RSE) ----------
+  const EX = () => window.EXAMS[S.track];
+  const trackTopics = () => TOPICS.filter(t => t[S.track]);
+  const trackTopicIds = () => trackTopics().map(t => t.id);
+  const otherTrack = () => (S.track === "cire" ? "rse" : "cire");
+
   function daysLeft() {
-    const d = new Date(S.examDate + "T00:00:00");
+    if (!S.dates[S.track]) return null;
+    const d = new Date(S.dates[S.track] + "T00:00:00");
     const now = new Date(); now.setHours(0, 0, 0, 0);
     return Math.round((d - now) / 86400000);
   }
@@ -68,7 +82,8 @@
     return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(sec).padStart(2, "0");
   }
   function topicStats(tid) {
-    const qs = QUESTIONS.filter(q => !tid || q.topic === tid);
+    const ids = tid ? [tid] : trackTopicIds();
+    const qs = QUESTIONS.filter(q => ids.includes(q.topic));
     let seen = 0, right = 0, missed = 0;
     for (const q of qs) {
       const r = S.q[q.id];
@@ -84,6 +99,7 @@
       mode, idx: 0, started: Date.now(),
       duration: mode === "exam" ? (opts.seconds || qids.length * SECONDS_PER_EXAM_Q) : 0,
       title: opts.title || (mode === "exam" ? "Mock Exam" : "Practice"),
+      track: S.track,
       items: qids.map(id => ({ id, order: shuffle([0, 1, 2, 3]), chosen: null, flag: false })),
       done: false
     };
@@ -104,30 +120,29 @@
     return shuffle(pool).slice(0, count).map(q => q.id);
   }
 
-  // Exam draws evenly across topics
-  function examQuestions(n) {
-    const byTopic = TOPICS.map(t => shuffle(QUESTIONS.filter(q => q.topic === t.id)));
-    const out = [];
-    let i = 0;
-    while (out.length < n && byTopic.some(a => a.length)) {
-      const a = byTopic[i++ % byTopic.length];
-      if (a.length) out.push(a.pop().id);
-    }
-    return shuffle(out);
-  }
-
   // Exam draws per element using the official weightings (e.g., CIRE: 17 KYC & suitability questions).
   function elementPool(exam, el) {
     return QUESTIONS.filter(q => TOPIC[q.topic][exam] === el);
   }
-  function weightedExamQuestions(exam) {
+  // n defaults to the real exam length; shorter exams keep the same proportions.
+  function sectionCounts(exam, n) {
     const cfg = window.EXAMS[exam];
+    n = n || cfg.questions;
+    const raw = cfg.elements.map(el => el.n * n / cfg.questions);
+    const counts = raw.map(Math.floor);
+    let left = n - counts.reduce((a, b) => a + b, 0);
+    raw.map((r, i) => [r - counts[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { counts[i]++; left--; } });
+    return counts;
+  }
+  function weightedExamQuestions(exam, n) {
+    const cfg = window.EXAMS[exam];
+    const counts = sectionCounts(exam, n);
     const out = [];
-    for (const el of cfg.elements) {
+    for (const [i, el] of cfg.elements.entries()) {
       // Prefer questions not seen yet, then previously missed, then the rest.
       const score = q => { const r = S.q[q.id]; return !r ? 0 : r.last ? 2 : 1; };
       const pool = shuffle(elementPool(exam, el.id)).sort((a, b) => score(a) - score(b));
-      out.push(...pool.slice(0, el.n).map(q => q.id));
+      out.push(...pool.slice(0, counts[i]).map(q => q.id));
     }
     return shuffle(out);
   }
@@ -135,22 +150,40 @@
   // ---------- Views ----------
   const views = {};
 
+  function sectionStats(exam, elId) {
+    let seen = 0, right = 0, missed = 0;
+    const pool = elementPool(exam, elId);
+    pool.forEach(q => { const r = S.q[q.id]; if (r) { seen++; if (r.last) right++; else missed++; } });
+    return { total: pool.length, seen, right, missed, acc: pct(right, seen) };
+  }
+  function practiseSection(exam, elId) {
+    const el = window.EXAMS[exam].elements.find(x => x.id === elId);
+    const pool = elementPool(exam, elId).map(q => q.id);
+    const score = id => { const r = S.q[id]; return !r ? 1 : r.last ? 2 : 0; };
+    startSession("practice", shuffle(pool).sort((x, y) => score(x) - score(y)).slice(0, 20),
+      { title: `${window.EXAMS[exam].name} ${elId}: ${el.name}` });
+  }
+
   views.home = function () {
+    const ex = EX();
     const dl = daysLeft();
     const all = topicStats();
-    const lastExam = S.exams[S.exams.length - 1];
-    const best = S.exams.reduce((m, e) => Math.max(m, pct(e.score, e.total)), 0);
-    const weak = TOPICS.map(t => ({ t, s: topicStats(t.id) }))
-      .sort((a, b) => (a.s.seen ? a.s.acc : -1) - (b.s.seen ? b.s.acc : -1)).slice(0, 3);
+    const myExams = S.exams.filter(e => (e.track || "cire") === S.track);
+    const lastExam = myExams[myExams.length - 1];
+    const best = myExams.reduce((m, e) => Math.max(m, pct(e.score, e.total)), 0);
+    const sections = ex.elements.map(el => ({ el, s: sectionStats(S.track, el.id) }));
     const missed = all.missed;
-    const countdownText = dl > 1 ? `<b>${dl}</b><small>days to go</small>` : dl === 1 ? `<b>1</b><small>day to go</small>` : dl === 0 ? `<b>Today</b><small>Good luck! 🍀</small>` : `<b>✓</b><small>exam date passed</small>`;
+    const countdownText = dl === null ? `<b>📅</b><small>set your date below</small>`
+      : dl > 1 ? `<b>${dl}</b><small>days to go</small>` : dl === 1 ? `<b>1</b><small>day to go</small>` : dl === 0 ? `<b>Today</b><small>Good luck! 🍀</small>` : `<b>✓</b><small>exam date passed</small>`;
+    const other = window.EXAMS[otherTrack()];
+    const shared = QUESTIONS.filter(q => TOPIC[q.topic].cire && TOPIC[q.topic].rse).length;
 
     $app.innerHTML = `
       <div class="card hero">
         <div>
-          <h1>CIRO Exam Prep</h1>
-          <p>${QUESTIONS.length} practice questions · ${TOPICS.length} topics · ${window.GLOSSARY.length} flashcards</p>
-          <p style="margin-top:6px"><a href="#/guide" style="color:#fff">Covers every section of the CIRE & RSE exams →</a></p>
+          <h1>${ex.name} Prep</h1>
+          <p>${esc(ex.full)}${S.dates[S.track] ? " · " + new Date(S.dates[S.track] + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) : ""}</p>
+          <p style="margin-top:6px;opacity:.85">${all.total} practice questions · ${ex.elements.length} exam sections · ${ex.questions} questions in ${ex.minutes / 60} hours on the real exam</p>
         </div>
         <div class="countdown">${countdownText}</div>
       </div>
@@ -160,81 +193,101 @@
       <div class="grid grid-4 mt">
         <div class="card stat"><b>${all.seen}/${all.total}</b><span>Questions attempted</span></div>
         <div class="card stat"><b>${all.seen ? all.acc + "%" : "—"}</b><span>Current accuracy</span></div>
-        <div class="card stat"><b>${S.exams.length ? best + "%" : "—"}</b><span>Best mock exam</span></div>
+        <div class="card stat"><b>${myExams.length ? best + "%" : "—"}</b><span>Best ${ex.name} mock</span></div>
         <div class="card stat"><b>${missed}</b><span>Questions to review</span></div>
       </div>
 
       <div class="row mt">
         <button class="btn primary" id="go-daily">⚡ Quick 20: weakest areas</button>
-        <a class="btn accent" href="#/exam">⏱️ Mock exam</a>
+        <a class="btn accent" href="#/exam">⏱️ ${ex.name} mock exam</a>
         <button class="btn" id="go-missed" ${missed ? "" : "disabled"}>🔁 Redo ${missed} missed</button>
       </div>
 
-      ${studyPlan(dl, weak)}
+      ${studyPlan(dl, sections)}
 
-      <h2>Progress by topic</h2>
+      <h2>${ex.name} sections</h2>
+      <p class="sub">Weighted the way CIRO weights the real exam. Tap a topic to read its notes.</p>
       <div class="card">
-        ${TOPICS.map(t => {
-          const s = topicStats(t.id);
-          const cover = pct(s.seen, s.total);
-          return `<div class="topic-row">
-            <div class="name">${t.icon} ${esc(t.name)}
+        ${sections.map(({ el, s }) => `<div class="topic-row">
+            <div class="name"><b>${el.id}</b> ${esc(el.name)} <span class="tag">· ${el.n} of ${ex.questions} exam questions</span>
+              <small>${TOPICS.filter(t => t[S.track] === el.id).map(t => `<a href="#/notes/${t.id}">${t.icon} ${esc(t.name)}</a>`).join(" · ")}</small>
               <small>${s.seen}/${s.total} attempted${s.seen ? " · " + s.acc + "% correct" : ""}</small>
-              <div class="bar"><i class="${s.seen ? barClass(s.acc) : ""}" style="width:${s.seen ? s.acc : cover}%"></i></div>
+              <div class="bar"><i class="${s.seen ? barClass(s.acc) : ""}" style="width:${s.seen ? s.acc : 0}%"></i></div>
             </div>
-            <a class="btn small" href="#/notes/${t.id}">Notes</a>
-            <button class="btn small" data-practice="${t.id}">Practice</button>
-          </div>`;
-        }).join("")}
+            <button class="btn small" data-sec="${el.id}">Practise</button>
+          </div>`).join("")}
+      </div>
+
+      <div class="card mt">
+        <b>${S.track === "cire" ? "📌 After the CIRE: the RSE" : "📌 The CIRE"}</b>
+        <p style="margin:6px 0 10px">${S.track === "cire"
+          ? `When the CIRE is done, switch to <b>RSE</b> at the top of the page. It has its own sections, notes and mock exams. Everything you practise for the CIRE also counts toward the RSE (${shared} of its ${QUESTIONS.filter(q => TOPIC[q.topic].rse).length} questions), so you won't start from zero.`
+          : `Switch to <b>CIRE</b> at the top to go back to CIRE-only material.`}</p>
+        <button class="btn small" id="switch-other">Switch to ${other.name}</button>
       </div>
 
       <h2>Settings</h2>
       <div class="card">
         <div class="row">
-          <label for="exam-date"><b>Exam date</b></label>
-          <input type="date" id="exam-date" value="${esc(S.examDate)}">
+          <label for="exam-date"><b>${ex.name} exam date</b></label>
+          <input type="date" id="exam-date" value="${esc(S.dates[S.track] || "")}">
           <span class="spacer"></span>
           <button class="btn small" id="reset">Reset all progress</button>
         </div>
-        ${lastExam ? `<p class="muted" style="margin-bottom:0">Last mock exam: ${pct(lastExam.score, lastExam.total)}% (${lastExam.score}/${lastExam.total}) on ${new Date(lastExam.date).toLocaleDateString()}</p>` : ""}
+        ${lastExam ? `<p class="muted" style="margin-bottom:0">Last ${ex.name} mock: ${pct(lastExam.score, lastExam.total)}% (${lastExam.score}/${lastExam.total}) on ${new Date(lastExam.date).toLocaleDateString()}</p>` : ""}
       </div>`;
 
     document.getElementById("go-daily").onclick = () =>
-      startSession("practice", pickQuestions(TOPICS.map(t => t.id), "weak", 20), { title: "Quick 20" });
+      startSession("practice", pickQuestions(trackTopicIds(), "weak", 20), { title: `${ex.name} Quick 20` });
     document.getElementById("go-missed").onclick = () =>
-      startSession("practice", pickQuestions(TOPICS.map(t => t.id), "missed", 999), { title: "Review missed" });
-    $app.querySelectorAll("[data-practice]").forEach(b => b.onclick = () =>
-      startSession("practice", pickQuestions([b.dataset.practice], "all", 999), { title: TOPIC[b.dataset.practice].name }));
-    document.getElementById("exam-date").onchange = e => { if (e.target.value) { S.examDate = e.target.value; save(); render(); } };
+      startSession("practice", pickQuestions(trackTopicIds(), "missed", 999), { title: `${ex.name} review missed` });
+    $app.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => practiseSection(S.track, b.dataset.sec));
+    document.getElementById("switch-other").onclick = () => setTrack(otherTrack());
+    document.getElementById("exam-date").onchange = e => { S.dates[S.track] = e.target.value; save(); render(); };
     document.getElementById("reset").onclick = () => {
-      if (confirm("Erase all answers, mock exam history and flashcard progress?")) {
-        const d = S.examDate; S = fresh(); S.examDate = d; save(); render();
+      if (confirm("Erase all answers, mock exam history and flashcard progress (for both CIRE and RSE)?")) {
+        const d = S.dates, t = S.track; S = fresh(); S.dates = d; S.track = t; save(); render();
       }
     };
   };
 
-  function studyPlan(dl, weak) {
-    if (dl < 0) return "";
+  function studyPlan(dl, sections) {
+    if (dl !== null && dl < 0) return "";
+    const ex = EX();
     let tip;
-    const untouched = TOPICS.filter(t => !topicStats(t.id).seen);
-    if (dl === 0) tip = "Exam day! Skim the formula boxes in your notes, then rest. Don't cram new material.";
+    const untouched = sections.filter(x => !x.s.seen);
+    // Weakest = lowest accuracy, with the most heavily weighted sections first on ties
+    const weak = sections.filter(x => x.s.seen).sort((a, b) => (a.s.acc - b.s.acc) || (b.el.n - a.el.n)).slice(0, 3);
+    if (dl === 0) tip = "Exam day! Skim the formula boxes and exam traps in your notes, then rest. Don't cram new material.";
     else if (dl === 1) tip = "Tomorrow's the day. Do a light review of flashcards and your missed questions, then get a good night's sleep.";
-    else if (untouched.length) tip = `Start by reading notes and practising topics you haven't tried yet: <b>${untouched.slice(0, 3).map(t => esc(t.name)).join(", ")}</b>${untouched.length > 3 ? " and " + (untouched.length - 3) + " more" : ""}.`;
-    else if (dl <= 3) tip = "Final stretch: take a full mock exam, then redo every missed question and review flashcards.";
-    else tip = `Focus on your weakest areas: <b>${weak.map(w => esc(w.t.name)).join(", ")}</b>. Aim for one mock exam every 2–3 days.`;
+    else if (untouched.length) {
+      const next = untouched.slice().sort((a, b) => b.el.n - a.el.n).slice(0, 3);
+      tip = `Start with the sections you haven't tried, biggest first: <b>${next.map(x => x.el.id + " " + esc(x.el.name)).join(", ")}</b>. Read the notes, then press Practise.`;
+    }
+    else if (dl !== null && dl <= 3) tip = `Final stretch: take a full ${ex.name} mock exam, then redo every missed question and review flashcards.`;
+    else tip = `Focus on your weakest sections: <b>${weak.map(x => x.el.id + " " + esc(x.el.name)).join(", ")}</b>. Aim for one ${ex.name} mock exam every 2–3 days.`;
     return `<div class="card mt"><b>📅 Today's plan</b><p style="margin:6px 0 0">${tip}</p></div>`;
+  }
+
+  // Topics in the order of the current exam's sections
+  function orderedTrackTopics() {
+    return EX().elements.flatMap(el => TOPICS.filter(t => t[S.track] === el.id));
   }
 
   views.notes = function (tid) {
     if (tid && TOPIC[tid]) {
       const t = TOPIC[tid];
-      const idx = TOPICS.indexOf(t);
-      const prev = TOPICS[idx - 1], next = TOPICS[idx + 1];
+      const list = orderedTrackTopics();
+      const idx = list.indexOf(t);
+      const prev = idx > 0 ? list[idx - 1] : null, next = idx >= 0 ? list[idx + 1] : null;
       const s = topicStats(tid);
+      const where = Object.entries(window.EXAMS).map(([id, e]) => t[id]
+        ? `${e.name} ${t[id]}: ${esc(e.elements.find(x => x.id === t[id]).name)}` : `not a focus of the ${e.name}`).join(" · ");
       $app.innerHTML = `
-        <a href="#/notes" class="muted">← All topics</a>
+        <a href="#/notes" class="muted">← All ${EX().name} topics</a>
         <h1>${t.icon} ${esc(t.name)}</h1>
-        <p class="sub">${s.total} practice questions${s.seen ? " · " + s.acc + "% correct so far" : ""}</p>
+        <p class="sub">${where}<br>${s.total} practice questions${s.seen ? " · " + s.acc + "% correct so far" : ""}</p>
+        ${t[S.track] ? "" : `<div class="trap" style="margin:0 0 12px">This topic is mainly for the ${esc(window.EXAMS[otherTrack()].name)}, so it's not part of your ${EX().name} practice.</div>`}
         <div class="card notes">${window.NOTES[tid] || "<p>No notes yet.</p>"}</div>
         <div class="row mt">
           <button class="btn primary" id="practice-topic">Practise this topic</button>
@@ -244,34 +297,38 @@
           ${next ? `<a class="btn small" href="#/notes/${next.id}">${esc(next.name)} →</a>` : ""}
         </div>`;
       document.getElementById("practice-topic").onclick = () =>
-        startSession("practice", pickQuestions([tid], "all", 999), { title: t.name });
+        startSession("practice", pickQuestions([tid], "weak", 999), { title: t.name });
       window.scrollTo(0, 0);
       return;
     }
+    const ex = EX();
     $app.innerHTML = `
-      <h1>Study Notes</h1>
-      <p class="sub">Condensed notes for each topic, with formulas and common exam traps.</p>
-      <div class="grid grid-3">
-        ${TOPICS.map(t => {
-          const s = topicStats(t.id);
-          return `<a class="card topic-tile" href="#/notes/${t.id}">
-            <div class="ic">${t.icon}</div><b>${esc(t.name)}</b>
-            <small>${s.total} questions${s.seen ? " · " + s.acc + "% correct" : ""}</small>
-          </a>`;
-        }).join("")}
-      </div>`;
+      <h1>${ex.name} Study Notes</h1>
+      <p class="sub">Condensed notes for every topic on the ${ex.name}, with formulas and common exam traps, grouped by exam section.</p>
+      ${ex.elements.map(el => `
+        <h2 style="margin-top:22px">${el.id} · ${esc(el.name)} <span class="tag">${el.n} of ${ex.questions} exam questions</span></h2>
+        <div class="grid grid-3">
+          ${TOPICS.filter(t => t[S.track] === el.id).map(t => {
+            const st = topicStats(t.id);
+            return `<a class="card topic-tile" href="#/notes/${t.id}">
+              <div class="ic">${t.icon}</div><b>${esc(t.name)}</b>
+              <small>${st.total} questions${st.seen ? " · " + st.acc + "% correct" : ""}</small>
+            </a>`;
+          }).join("")}
+        </div>`).join("")}`;
   };
 
   views.practice = function () {
-    const sel = new Set(TOPICS.map(t => t.id));
+    const tt = orderedTrackTopics();
+    const sel = new Set(tt.map(t => t.id));
     $app.innerHTML = `
-      <h1>Practice</h1>
-      <p class="sub">See the answer and explanation right after each question.</p>
+      <h1>${EX().name} Practice</h1>
+      <p class="sub">See the answer and explanation right after each question. Only ${EX().name} topics are shown; switch exams at the top.</p>
       <div class="card">
         <div class="row"><b>Topics</b><span class="spacer"></span>
           <button class="btn small" id="all">All</button><button class="btn small" id="none">None</button></div>
         <div class="chips mt" id="topics">
-          ${TOPICS.map(t => `<label class="chip on" data-t="${t.id}">${t.icon} ${esc(t.name)}</label>`).join("")}
+          ${tt.map(t => `<label class="chip on" data-t="${t.id}">${t.icon} ${esc(t.name)}</label>`).join("")}
         </div>
         <label class="field">Questions</label>
         <div class="chips" id="filter">
@@ -326,41 +383,33 @@
   };
 
   views.exam = function () {
-    const hist = S.exams.slice().reverse();
+    const ex = EX();
+    const hist = S.exams.filter(e => (e.track || "cire") === S.track).reverse();
+    const perQ = ex.minutes * 60 / ex.questions;
+    const sizes = [[ex.questions, `Full ${ex.name} exam`, "accent"], [Math.round(ex.questions / 2), "Half exam", "primary"], [25, "Quick 25", "primary"]];
     $app.innerHTML = `
-      <h1>Mock Exam</h1>
-      <p class="sub">Timed, with no feedback until you submit, like the real thing. ${PASS_MARK * 100}% is shown as the target line. <a href="#/guide">See how questions map to the exam sections →</a></p>
-      <div class="grid grid-2">
-        ${Object.entries(window.EXAMS).map(([id, e]) => `
-          <div class="card">
-            <b>Full ${e.name}-style exam</b>
-            <p class="muted" style="margin:4px 0 12px">${e.questions} questions · ${fmtTime(e.minutes * 60)} · weighted by ${e.name} section, like the real exam. ${esc(e.full)}.</p>
-            <button class="btn accent" data-exam="${id}">Start ${e.name} mock</button>
-          </div>`).join("")}
-      </div>
-      <div class="grid grid-2 mt">
-        ${[[25, "Short mixed"], [50, "Half mixed"]].map(([n, lbl]) => `
+      <h1>${ex.name} Mock Exam</h1>
+      <p class="sub">Timed, with no feedback until you submit, like the real thing. Every mock draws questions from each ${ex.name} section in the same proportions as the real exam, with the same time per question (${Math.round(perQ)} seconds). ${PASS_MARK * 100}% is shown as the target line. Questions you haven't seen come up first.</p>
+      <div class="grid grid-3">
+        ${sizes.map(([n, lbl, cls]) => `
           <div class="card">
             <b>${lbl}</b>
-            <p class="muted" style="margin:4px 0 12px">${n} questions from every topic · ${fmtTime(n * SECONDS_PER_EXAM_Q)}</p>
-            <button class="btn primary" data-n="${n}">Start</button>
+            <p class="muted" style="margin:4px 0 12px">${n} questions · ${fmtTime(n * perQ)}</p>
+            <button class="btn ${cls}" data-n="${n}">Start</button>
           </div>`).join("")}
       </div>
-      <h2>History</h2>
+      <h2>${ex.name} history</h2>
       <div class="card">
         ${hist.length ? hist.map(e => {
           const p = pct(e.score, e.total);
           return `<div class="topic-row"><div class="name">${p}% <small>${e.score}/${e.total} · ${new Date(e.date).toLocaleString()} · ${fmtTime(e.secs)}</small>
             <div class="bar"><i class="${barClass(p)}" style="width:${p}%"></i></div></div></div>`;
-        }).join("") : `<div class="empty">No mock exams yet.</div>`}
+        }).join("") : `<div class="empty">No ${ex.name} mock exams yet.</div>`}
       </div>`;
     $app.querySelectorAll("[data-n]").forEach(b => b.onclick = () => {
       const n = +b.dataset.n;
-      startSession("exam", examQuestions(n), { title: `Mock Exam (${n})` });
-    });
-    $app.querySelectorAll("[data-exam]").forEach(b => b.onclick = () => {
-      const e = window.EXAMS[b.dataset.exam];
-      startSession("exam", weightedExamQuestions(b.dataset.exam), { title: `${e.name} Mock Exam`, seconds: e.minutes * 60 });
+      startSession("exam", weightedExamQuestions(S.track, n),
+        { title: n === ex.questions ? `${ex.name} Mock Exam` : `${ex.name} Mock (${n})`, seconds: Math.round(n * perQ) });
     });
   };
 
@@ -477,7 +526,7 @@
     if (ss.mode === "exam") {
       ss.items.forEach(it => record(it.id, it.chosen === 0));
       const score = ss.items.filter(it => it.chosen === 0).length;
-      S.exams.push({ date: Date.now(), score, total: ss.items.length, secs: ss.secs });
+      S.exams.push({ date: Date.now(), score, total: ss.items.length, secs: ss.secs, track: ss.track || "cire" });
     }
     save();
     location.hash = "#/results";
@@ -544,24 +593,25 @@
   views.cards = function (tid) {
     const topic = tid && TOPIC[tid] ? tid : "";
     const onlyLearning = !!(deck && deck.onlyLearning);
-    const signature = topic + "|" + onlyLearning;
+    const signature = S.track + "|" + topic + "|" + onlyLearning;
+    const inScope = tp => topic ? tp === topic : !!TOPIC[tp][S.track];
     if (!deck || deck.sig !== signature) {
       let cards = window.GLOSSARY.map((g, i) => ({ i, term: g[0], def: g[1], topic: g[2] }))
-        .filter(c => !topic || c.topic === topic);
+        .filter(c => inScope(c.topic));
       if (onlyLearning) cards = cards.filter(c => S.cards[c.term] !== 1);
       deck = { sig: signature, onlyLearning, cards: shuffle(cards), pos: 0, flipped: false };
     }
-    const all = window.GLOSSARY.filter(g => !topic || g[2] === topic);
+    const all = window.GLOSSARY.filter(g => inScope(g[2]));
     const known = all.filter(g => S.cards[g[0]] === 1).length;
     const c = deck.cards[deck.pos];
 
     $app.innerHTML = `
-      <h1>Flashcards</h1>
+      <h1>${EX().name} Flashcards</h1>
       <p class="sub">Tap the card to flip it. Mark each one to track what you know. ${known}/${all.length} known.</p>
       <div class="row">
         <select id="topic">
-          <option value="">All topics</option>
-          ${TOPICS.map(t => `<option value="${t.id}" ${t.id === topic ? "selected" : ""}>${t.icon} ${esc(t.name)}</option>`).join("")}
+          <option value="">All ${EX().name} topics</option>
+          ${orderedTrackTopics().map(t => `<option value="${t.id}" ${t.id === topic ? "selected" : ""}>${t.icon} ${esc(t.name)}</option>`).join("")}
         </select>
         <label class="chip ${onlyLearning ? "on" : ""}" id="only">Only cards I'm still learning</label>
         <span class="spacer"></span>
@@ -607,47 +657,45 @@
   };
 
   views.guide = function () {
+    const id = S.track, e = EX(), other = window.EXAMS[otherTrack()];
+    const pool = QUESTIONS.filter(q => TOPIC[q.topic][id]);
     const kinds = { s: 0, c: 0, r: 0 };
-    QUESTIONS.forEach(q => kinds[q.kind]++);
-    const section = (id, e) => {
-      const rows = e.elements.map(el => {
-        const pool = elementPool(id, el.id);
-        let seen = 0, right = 0;
-        pool.forEach(q => { const r = S.q[q.id]; if (r) { seen++; if (r.last) right++; } });
-        const topics = TOPICS.filter(t => t[id] === el.id);
-        const acc = pct(right, seen);
-        return `<tr>
-          <td><b>${el.id}</b> ${esc(el.name)}<br><span class="tag">${topics.map(t => t.icon + " " + esc(t.name)).join(" · ")}</span></td>
-          <td>${el.n} <span class="tag">(${pct(el.n, e.questions)}%)</span></td>
-          <td>${pool.length}</td>
-          <td>${seen ? `${acc}%<div class="bar"><i class="${barClass(acc)}" style="width:${acc}%"></i></div>` : `<span class="muted">—</span>`}</td>
-          <td><button class="btn small" data-el="${id}:${el.id}">Practise</button></td>
-        </tr>`;
-      }).join("");
-      return `<h2>${e.name}: ${esc(e.full)}</h2>
-        <p class="sub">${esc(e.blurb)} ${e.questions} multiple-choice questions in ${e.minutes / 60} hours.</p>
-        <div class="card notes"><table>
-          <tr><th>Section</th><th>On the exam</th><th>In this bank</th><th>Your accuracy</th><th></th></tr>
-          ${rows}
-        </table></div>`;
-    };
+    pool.forEach(q => kinds[q.kind]++);
+    const rows = e.elements.map(el => {
+      const st = sectionStats(id, el.id);
+      const topics = TOPICS.filter(t => t[id] === el.id);
+      return `<tr>
+        <td><b>${el.id}</b> ${esc(el.name)}<br><span class="tag">${topics.map(t => t.icon + " " + esc(t.name)).join(" · ")}</span></td>
+        <td>${el.n} <span class="tag">(${pct(el.n, e.questions)}%)</span></td>
+        <td>${st.total}</td>
+        <td>${st.seen ? `${st.acc}%<div class="bar"><i class="${barClass(st.acc)}" style="width:${st.acc}%"></i></div>` : `<span class="muted">—</span>`}</td>
+        <td><button class="btn small" data-el="${el.id}">Practise</button></td>
+      </tr>`;
+    }).join("");
+    const notFocus = TOPICS.filter(t => !t[id]);
     $app.innerHTML = `
-      <h1>Exam Guide & Coverage</h1>
-      <p class="sub">Since January 1, 2026, CIRO licensing uses new exams built on "competency profiles". Most new advisors write the <b>CIRE</b> first, and retail advisors also write the <b>RSE</b>. Every section of both exams is covered below, weighted the way CIRO weights them.</p>
+      <h1>${e.name} Guide</h1>
+      <p class="sub"><b>${esc(e.full)}.</b> ${esc(e.blurb)} ${e.questions} multiple-choice questions in ${e.minutes / 60} hours, mostly short client scenarios.</p>
       <div class="card">
-        <b>Question mix (${QUESTIONS.length} total)</b>
+        <b>${e.name} question bank: ${pool.length} questions</b>
         <p style="margin:6px 0 0">🧑‍💼 <b>${kinds.s}</b> client scenarios (apply the rules to a situation, like the real exam) ·
         🧮 <b>${kinds.c}</b> calculations (each tests a different formula) ·
         📘 <b>${kinds.r}</b> concept checks</p>
       </div>
-      ${Object.entries(window.EXAMS).map(([id, e]) => section(id, e) + (TOPICS.some(t => !t[id]) ? `<p class="muted">Not a focus of the ${e.name}: ${TOPICS.filter(t => !t[id]).map(t => t.icon + " " + esc(t.name)).join(", ")}.</p>` : "")).join("")}
-      <div class="trap">Exam details (length, time, pass mark) are based on CIRO's published syllabi as of 2026. Confirm them in her exam booking confirmation or on ciro.ca, since CIRO can update them.</div>`;
-    $app.querySelectorAll("[data-el]").forEach(b => b.onclick = () => {
-      const [exam, el] = b.dataset.el.split(":");
-      const name = window.EXAMS[exam].elements.find(x => x.id === el).name;
-      const pool = elementPool(exam, el).map(q => q.id);
-      startSession("practice", shuffle(pool).slice(0, 20), { title: `${window.EXAMS[exam].name} ${el}: ${name}` });
-    });
+      <h2>Sections</h2>
+      <div class="card notes"><table>
+        <tr><th>Section</th><th>On the exam</th><th>In this bank</th><th>Your accuracy</th><th></th></tr>
+        ${rows}
+      </table></div>
+      ${notFocus.length ? `<p class="muted">Not a focus of the ${e.name}: ${notFocus.map(t => t.icon + " " + esc(t.name)).join(", ")}.</p>` : ""}
+      <div class="card mt">
+        <b>${esc(other.full)} (${other.name})</b>
+        <p style="margin:6px 0 10px">${esc(other.blurb)} ${other.questions} questions in ${other.minutes / 60} hours.</p>
+        <button class="btn small" id="switch-other">Switch to ${other.name}</button>
+      </div>
+      <div class="trap">Exam details (length, time, pass mark) are based on CIRO's published syllabi as of 2026. Confirm them in the exam booking confirmation or on ciro.ca, since CIRO can update them.</div>`;
+    $app.querySelectorAll("[data-el]").forEach(b => b.onclick = () => practiseSection(id, b.dataset.el));
+    document.getElementById("switch-other").onclick = () => setTrack(otherTrack());
   };
 
   views.glossary = function () {
@@ -670,6 +718,12 @@
 
   // ---------- Router ----------
   let keyHandler = null;
+  function setTrack(t) {
+    if (!window.EXAMS[t] || t === S.track) return;
+    S.track = t; deck = null; save();
+    render(); window.scrollTo(0, 0);
+  }
+  document.querySelectorAll("#track button").forEach(b => b.onclick = () => setTrack(b.dataset.t));
   document.addEventListener("keydown", e => { if (keyHandler) keyHandler(e); });
 
   function render() {
@@ -679,6 +733,8 @@
     const route = parts[0];
     const navKey = route === "quiz" || route === "results" ? (S.session && S.session.mode === "exam" ? "exam" : "practice") : route;
     document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.r === navKey));
+    document.querySelectorAll("#track button").forEach(b => b.classList.toggle("on", b.dataset.t === S.track));
+    document.title = EX().name + " Prep";
     const view = views[route] || views.home;
     view(parts[1]);
   }

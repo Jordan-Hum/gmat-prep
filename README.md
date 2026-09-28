@@ -3,10 +3,11 @@
 A static study site for the CIRO licensing exam. It has no build step and no server; it runs on GitHub Pages.
 
 ## Features
+- **Two exam tracks: CIRE and RSE.** A switch in the header scopes the whole site (home, notes, practice, mock exams, guide, flashcards) to one exam, organized by that exam's official sections, with its own exam date and countdown. Progress on topics the exams share carries over.
 - **415 practice questions** across 16 topics, each with an explanation. That's 141 client scenarios (the style CIRO's 2026 exams use), 39 calculations each testing a different formula, and 235 concept checks. Answer order is shuffled every time.
 - **Mapped to CIRO's 2026 exams**: every topic is tagged to its CIRE and RSE section (`js/data-topics.js`). The Exam Guide page shows coverage and accuracy per section.
 - **Study notes** for every topic, with formulas and common exam traps.
-- **Timed mock exams**: full CIRE-style (110 questions / 2 h) and RSE-style (120 questions / 3 h) exams weighted like the real ones, plus 25/50-question mixed exams, with a question grid, flagging and a full review.
+- **Timed mock exams** for each track: full-length (CIRE 110 questions / 2 h, RSE 120 questions / 3 h), half and quick 25. All are weighted by section and paced like the real exam, with a question grid, flagging and a full review.
 - **Smart practice**: "Quick 20" puts unseen and missed questions first. You can also redo just the ones you got wrong.
 - **165 flashcards** and a searchable **glossary**.
 - **Progress tracking** by topic, an exam-day countdown and a daily study tip. Progress is saved in the browser's localStorage.
