@@ -4,11 +4,19 @@
   // ---------- Data ----------
   const TOPICS = window.TOPICS;
   const TOPIC = Object.fromEntries(TOPICS.map(t => [t.id, t]));
+  // Stable id from the question text, so reordering or adding questions keeps saved progress.
+  function hashId(s) {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36);
+  }
+  const KIND_LABEL = { s: "Scenario", c: "Calculation", r: "Concept" };
   const QUESTIONS = [];
   for (const t of TOPICS) {
-    (window.QB[t.id] || []).forEach((q, i) => {
-      QUESTIONS.push({ id: t.id + "-" + i, topic: t.id, text: q[0], opts: q[1], exp: q[2] });
-    });
+    for (const q of window.QB[t.id] || []) {
+      const kind = q[3] || (/\d/.test(q[0]) && /[=×÷]/.test(q[2]) ? "c" : "r");
+      QUESTIONS.push({ id: t.id + "-" + hashId(q[0]), topic: t.id, text: q[0], opts: q[1], exp: q[2], kind });
+    }
   }
   const QMAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
   const DEFAULT_EXAM_DATE = "2026-10-08";
@@ -74,7 +82,7 @@
     opts = opts || {};
     S.session = {
       mode, idx: 0, started: Date.now(),
-      duration: mode === "exam" ? qids.length * SECONDS_PER_EXAM_Q : 0,
+      duration: mode === "exam" ? (opts.seconds || qids.length * SECONDS_PER_EXAM_Q) : 0,
       title: opts.title || (mode === "exam" ? "Mock Exam" : "Practice"),
       items: qids.map(id => ({ id, order: shuffle([0, 1, 2, 3]), chosen: null, flag: false })),
       done: false
@@ -83,8 +91,8 @@
     location.hash = "#/quiz";
   }
 
-  function pickQuestions(topics, filter, count) {
-    let pool = QUESTIONS.filter(q => topics.includes(q.topic));
+  function pickQuestions(topics, filter, count, kind) {
+    let pool = QUESTIONS.filter(q => topics.includes(q.topic) && (!kind || q.kind === kind));
     if (filter === "unseen") pool = pool.filter(q => !S.q[q.id]);
     if (filter === "missed") pool = pool.filter(q => S.q[q.id] && !S.q[q.id].last);
     if (filter === "weak") {
@@ -108,6 +116,22 @@
     return shuffle(out);
   }
 
+  // Exam draws per element using the official weightings (e.g., CIRE: 17 KYC & suitability questions).
+  function elementPool(exam, el) {
+    return QUESTIONS.filter(q => TOPIC[q.topic][exam] === el);
+  }
+  function weightedExamQuestions(exam) {
+    const cfg = window.EXAMS[exam];
+    const out = [];
+    for (const el of cfg.elements) {
+      // Prefer questions not seen yet, then previously missed, then the rest.
+      const score = q => { const r = S.q[q.id]; return !r ? 0 : r.last ? 2 : 1; };
+      const pool = shuffle(elementPool(exam, el.id)).sort((a, b) => score(a) - score(b));
+      out.push(...pool.slice(0, el.n).map(q => q.id));
+    }
+    return shuffle(out);
+  }
+
   // ---------- Views ----------
   const views = {};
 
@@ -126,6 +150,7 @@
         <div>
           <h1>CIRO Exam Prep</h1>
           <p>${QUESTIONS.length} practice questions · ${TOPICS.length} topics · ${window.GLOSSARY.length} flashcards</p>
+          <p style="margin-top:6px"><a href="#/guide" style="color:#fff">Covers every section of the CIRE & RSE exams →</a></p>
         </div>
         <div class="countdown">${countdownText}</div>
       </div>
@@ -255,6 +280,13 @@
           <label class="chip" data-v="unseen">Unseen only</label>
           <label class="chip" data-v="missed">Missed only</label>
         </div>
+        <label class="field">Question type</label>
+        <div class="chips" id="kind">
+          <label class="chip on" data-v="">All types</label>
+          <label class="chip" data-v="s">Client scenarios</label>
+          <label class="chip" data-v="c">Calculations</label>
+          <label class="chip" data-v="r">Concepts</label>
+        </div>
         <label class="field">How many?</label>
         <div class="chips" id="count">
           ${[10, 20, 40, 999].map((n, i) => `<label class="chip ${i === 1 ? "on" : ""}" data-v="${n}">${n === 999 ? "All" : n}</label>`).join("")}
@@ -263,10 +295,10 @@
         <button class="btn primary" id="start">Start practice</button>
       </div>`;
 
-    let filter = "weak", count = 20;
+    let filter = "weak", count = 20, kind = "";
     const avail = document.getElementById("avail");
     const update = () => {
-      const n = pickQuestions([...sel], filter, 9999).length;
+      const n = pickQuestions([...sel], filter, 9999, kind).length;
       avail.textContent = n + " questions available with these settings.";
       document.getElementById("start").disabled = n === 0;
     };
@@ -288,7 +320,8 @@
     });
     single("filter", v => filter = v);
     single("count", v => count = +v);
-    document.getElementById("start").onclick = () => startSession("practice", pickQuestions([...sel], filter, count));
+    single("kind", v => kind = v);
+    document.getElementById("start").onclick = () => startSession("practice", pickQuestions([...sel], filter, count, kind));
     update();
   };
 
@@ -296,12 +329,20 @@
     const hist = S.exams.slice().reverse();
     $app.innerHTML = `
       <h1>Mock Exam</h1>
-      <p class="sub">Timed, with no feedback until you submit, like the real thing. Questions are drawn evenly from every topic. You get ${SECONDS_PER_EXAM_Q} seconds per question; ${PASS_MARK * 100}% is shown as the pass line.</p>
-      <div class="grid grid-3">
-        ${[[25, "Short"], [50, "Half"], [100, "Full-length"]].map(([n, lbl]) => `
+      <p class="sub">Timed, with no feedback until you submit, like the real thing. ${PASS_MARK * 100}% is shown as the target line. <a href="#/guide">See how questions map to the exam sections →</a></p>
+      <div class="grid grid-2">
+        ${Object.entries(window.EXAMS).map(([id, e]) => `
+          <div class="card">
+            <b>Full ${e.name}-style exam</b>
+            <p class="muted" style="margin:4px 0 12px">${e.questions} questions · ${fmtTime(e.minutes * 60)} · weighted by ${e.name} section, like the real exam. ${esc(e.full)}.</p>
+            <button class="btn accent" data-exam="${id}">Start ${e.name} mock</button>
+          </div>`).join("")}
+      </div>
+      <div class="grid grid-2 mt">
+        ${[[25, "Short mixed"], [50, "Half mixed"]].map(([n, lbl]) => `
           <div class="card">
             <b>${lbl}</b>
-            <p class="muted" style="margin:4px 0 12px">${n} questions · ${fmtTime(n * SECONDS_PER_EXAM_Q)}</p>
+            <p class="muted" style="margin:4px 0 12px">${n} questions from every topic · ${fmtTime(n * SECONDS_PER_EXAM_Q)}</p>
             <button class="btn primary" data-n="${n}">Start</button>
           </div>`).join("")}
       </div>
@@ -316,6 +357,10 @@
     $app.querySelectorAll("[data-n]").forEach(b => b.onclick = () => {
       const n = +b.dataset.n;
       startSession("exam", examQuestions(n), { title: `Mock Exam (${n})` });
+    });
+    $app.querySelectorAll("[data-exam]").forEach(b => b.onclick = () => {
+      const e = window.EXAMS[b.dataset.exam];
+      startSession("exam", weightedExamQuestions(b.dataset.exam), { title: `${e.name} Mock Exam`, seconds: e.minutes * 60 });
     });
   };
 
@@ -343,7 +388,7 @@
         <button class="btn small" id="quit">${exam ? "Submit" : "End"}</button>
       </div>
       <div class="card">
-        <div class="row"><span class="tag">${TOPIC[q.topic].icon} ${esc(TOPIC[q.topic].name)}</span><span class="spacer"></span>
+        <div class="row"><span class="tag">${TOPIC[q.topic].icon} ${esc(TOPIC[q.topic].name)} · ${KIND_LABEL[q.kind]}</span><span class="spacer"></span>
           ${exam ? `<button class="btn small" id="flag">${it.flag ? "🚩 Flagged" : "⚑ Flag"}</button>` : ""}</div>
         <div class="q-text">${esc(q.text)}</div>
         <div id="opts">
@@ -559,6 +604,50 @@
       if (e.key === "ArrowRight") move(1);
       if (e.key === "ArrowLeft") move(-1);
     };
+  };
+
+  views.guide = function () {
+    const kinds = { s: 0, c: 0, r: 0 };
+    QUESTIONS.forEach(q => kinds[q.kind]++);
+    const section = (id, e) => {
+      const rows = e.elements.map(el => {
+        const pool = elementPool(id, el.id);
+        let seen = 0, right = 0;
+        pool.forEach(q => { const r = S.q[q.id]; if (r) { seen++; if (r.last) right++; } });
+        const topics = TOPICS.filter(t => t[id] === el.id);
+        const acc = pct(right, seen);
+        return `<tr>
+          <td><b>${el.id}</b> ${esc(el.name)}<br><span class="tag">${topics.map(t => t.icon + " " + esc(t.name)).join(" · ")}</span></td>
+          <td>${el.n} <span class="tag">(${pct(el.n, e.questions)}%)</span></td>
+          <td>${pool.length}</td>
+          <td>${seen ? `${acc}%<div class="bar"><i class="${barClass(acc)}" style="width:${acc}%"></i></div>` : `<span class="muted">—</span>`}</td>
+          <td><button class="btn small" data-el="${id}:${el.id}">Practise</button></td>
+        </tr>`;
+      }).join("");
+      return `<h2>${e.name}: ${esc(e.full)}</h2>
+        <p class="sub">${esc(e.blurb)} ${e.questions} multiple-choice questions in ${e.minutes / 60} hours.</p>
+        <div class="card notes"><table>
+          <tr><th>Section</th><th>On the exam</th><th>In this bank</th><th>Your accuracy</th><th></th></tr>
+          ${rows}
+        </table></div>`;
+    };
+    $app.innerHTML = `
+      <h1>Exam Guide & Coverage</h1>
+      <p class="sub">Since January 1, 2026, CIRO licensing uses new exams built on "competency profiles". Most new advisors write the <b>CIRE</b> first, and retail advisors also write the <b>RSE</b>. Every section of both exams is covered below, weighted the way CIRO weights them.</p>
+      <div class="card">
+        <b>Question mix (${QUESTIONS.length} total)</b>
+        <p style="margin:6px 0 0">🧑‍💼 <b>${kinds.s}</b> client scenarios (apply the rules to a situation, like the real exam) ·
+        🧮 <b>${kinds.c}</b> calculations (each tests a different formula) ·
+        📘 <b>${kinds.r}</b> concept checks</p>
+      </div>
+      ${Object.entries(window.EXAMS).map(([id, e]) => section(id, e) + (TOPICS.some(t => !t[id]) ? `<p class="muted">Not a focus of the ${e.name}: ${TOPICS.filter(t => !t[id]).map(t => t.icon + " " + esc(t.name)).join(", ")}.</p>` : "")).join("")}
+      <div class="trap">Exam details (length, time, pass mark) are based on CIRO's published syllabi as of 2026. Confirm them in her exam booking confirmation or on ciro.ca, since CIRO can update them.</div>`;
+    $app.querySelectorAll("[data-el]").forEach(b => b.onclick = () => {
+      const [exam, el] = b.dataset.el.split(":");
+      const name = window.EXAMS[exam].elements.find(x => x.id === el).name;
+      const pool = elementPool(exam, el).map(q => q.id);
+      startSession("practice", shuffle(pool).slice(0, 20), { title: `${window.EXAMS[exam].name} ${el}: ${name}` });
+    });
   };
 
   views.glossary = function () {

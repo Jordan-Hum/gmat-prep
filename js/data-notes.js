@@ -255,6 +255,16 @@ port: `
   <li>Evaluate performance against a <b>benchmark</b>.</li>
 </ol>
 
+<h3>Construction tools</h3>
+<ul>
+  <li><b>Bond ladder</b> (equal amounts across maturities), <b>barbell</b> (short + long only), <b>bullet</b> (concentrated around one date).</li>
+  <li><b>Dollar-cost averaging</b>: fixed amount regularly, so average cost falls below average price.</li>
+  <li><b>Rebalancing</b>: sell what's overweight and buy what's underweight to return to target.</li>
+  <li><b>Alpha</b> = actual return − CAPM-required return.</li>
+  <li><b>Time-weighted return</b> evaluates the manager; <b>money-weighted</b> reflects the client's experience (used in CRM2 reports).</li>
+  <li>Avoid <b>home bias</b>: the Canadian market is concentrated in financials, energy and materials.</li>
+</ul>
+
 <h3>Management styles</h3>
 <ul>
   <li><b>Active</b> (try to beat the index) vs. <b>passive</b> (track the index at low cost).</li>
@@ -372,49 +382,169 @@ tax: `
 </ul>
 `,
 
-conduct: `
-<h3>Standards of conduct</h3>
+onboard: `
+<h3>Opening an account</h3>
 <ul>
-  <li>Deal <b>fairly, honestly and in good faith</b>; put the <b>client's interest first</b> in suitability decisions.</li>
-  <li>Maintain confidentiality (privacy laws, e.g., PIPEDA).</li>
-</ul>
-
-<h3>Client Focused Reforms (CFR)</h3>
-<ul>
-  <li><b>KYC</b>: identity, personal and financial circumstances, investment needs and objectives, investment knowledge, <b>risk profile</b> (risk tolerance = willingness + risk capacity = ability), time horizon.</li>
-  <li>Update KYC at least every <b>36 months</b> (non-managed) or <b>12 months</b> (managed), and on any significant change.</li>
-  <li><b>KYP</b>: understand structure, features, risks and costs. The firm must assess and approve products.</li>
-  <li><b>Suitability</b>: triggered on account opening, transfers in, KYC changes, a change of representative, and whenever making a recommendation or accepting an order. Consider concentration, liquidity, costs and reasonable alternatives.</li>
-  <li><b>Conflicts of interest</b>: address material conflicts <b>in the client's best interest</b> or <b>avoid</b> them; <b>disclosure alone is not enough</b>.</li>
-  <li><b>Trusted contact person</b>: take reasonable steps to get one. A <b>temporary hold</b> is allowed for suspected financial exploitation or diminished capacity.</li>
-  <li><b>Relationship disclosure information</b>: given at account opening.</li>
-</ul>
-
-<h3>CRM2 reporting</h3>
-<ul>
-  <li><b>Annual report on charges and compensation</b> and an <b>annual investment performance report</b> (1, 3, 5, 10-year and since-inception % returns, money-weighted).</li>
-</ul>
-
-<h3>Prohibited or restricted conduct</h3>
-<ul>
-  <li><b>Churning</b> (excessive trading for commissions), <b>front running</b>, <b>insider trading</b> and <b>tipping</b>.</li>
-  <li><b>Off-book</b> transactions, unauthorized (discretionary) trading without authority, <b>borrowing from or lending to clients</b>, guaranteeing clients against loss, sharing in client accounts.</li>
-  <li><b>Outside activities</b> must be disclosed to and approved by the firm. <b>Referral arrangements</b> must be in writing, through the firm, and disclosed to the client.</li>
-</ul>
-
-<h3>Complaints</h3>
-<ul>
-  <li>Acknowledge in writing within <b>5 business days</b>; substantive response generally within <b>90 days</b>.</li>
-  <li>If unresolved → <b>OBSI</b> (free, up to $350,000).</li>
+  <li>The <b>new account application</b> collects KYC information. A <b>designated supervisor</b> approves new accounts.</li>
+  <li><b>Relationship disclosure information</b> is given before or at account opening: account types, products and services, costs, conflicts, how suitability works, and how to complain. It never includes return guarantees.</li>
+  <li><b>Trusted contact person (TCP)</b>: take reasonable steps to obtain one. If the client refuses, document it; the account can still be opened. A TCP <b>cannot give instructions</b>. That requires a <b>power of attorney</b>, which the firm must obtain a copy of, verify, and act within.</li>
+  <li><b>Third parties</b>: if someone else funds or directs the account, make a <b>third-party determination</b> and record their details. Trading authority must be in writing.</li>
+  <li><b>Minors</b> can't generally contract, so use an "in trust for" account or a guardian.</li>
+  <li><b>Leverage</b>: recommending borrowing to invest is subject to suitability, and the client must receive a <b>leverage risk disclosure</b>.</li>
+  <li><b>No KYC means no advice.</b> If a client won't give financial information, you can't make suitability determinations (an order-execution-only account may be an alternative).</li>
+  <li><b>Order-execution-only</b>: no suitability obligation, but identity verification and AML rules still apply.</li>
 </ul>
 
 <h3>Anti-money laundering (FINTRAC)</h3>
 <ul>
+  <li><b>Identity verification</b> methods: government-issued photo ID, credit file, or <b>dual-process</b> (two different reliable sources).</li>
+  <li><b>Entities</b>: identify <b>beneficial owners with 25% or more</b> ownership or control.</li>
   <li>Stages: <b>placement → layering → integration</b>.</li>
-  <li><b>Large Cash Transaction Report</b>: <b>$10,000+</b> in cash (including the 24-hour rule).</li>
-  <li><b>Suspicious Transaction Report</b>: as soon as practicable, <b>no minimum amount</b>. Never tip off the client.</li>
-  <li><b>Terrorist property report</b>: immediately.</li>
-  <li><b>PEPs</b>: enhanced due diligence (source of funds). Keep records for <b>5 years</b>.</li>
+  <li><b>Large Cash Transaction Report</b>: <b>$10,000+</b> in cash, including multiple amounts within <b>24 hours</b> (e.g., $6,000 + $5,000 the same day).</li>
+  <li><b>Suspicious Transaction Report</b>: as soon as practicable, <b>no minimum</b>. Structuring deposits just under $10,000 is a red flag. <b>Never tip off</b> the client.</li>
+  <li><b>Terrorist property report</b>: immediately. <b>PEPs</b>: enhanced due diligence (source of funds). Keep records for <b>5 years</b>.</li>
+</ul>
+<div class="trap"><b>Exam trap:</b> A trusted contact person is <b>not</b> a power of attorney, and can never place trades.</div>
+`,
+
+kyc: `
+<h3>Know Your Client</h3>
+<ul>
+  <li>Collect: identity, personal and financial circumstances, investment needs and objectives, investment knowledge, <b>risk profile</b>, time horizon.</li>
+  <li><b>Risk profile = risk tolerance</b> (willingness) <b>+ risk capacity</b> (financial ability to absorb losses). When they conflict, the <b>lower one</b> generally governs.</li>
+  <li>Take reasonable steps to have the client <b>confirm</b> the KYC information is accurate.</li>
+  <li>Update at least every <b>36 months</b> (non-managed) or <b>12 months</b> (managed), and whenever there's a <b>significant change</b> (job loss, inheritance, marriage/divorce, retirement).</li>
+</ul>
+
+<h3>Know Your Product</h3>
+<ul>
+  <li><b>Firm</b>: assess, approve and monitor products before offering them. <b>Individual</b>: understand the structure, features, risks and costs of what they recommend.</li>
+</ul>
+
+<h3>Suitability: putting the client's interest first</h3>
+<ul>
+  <li><b>Triggers</b>: account opening, securities transferred in, KYC change, change of representative, account reviews, and every recommendation or accepted instruction.</li>
+  <li><b>Consider</b>: KYC, KYP, impact on the account (<b>concentration, liquidity</b>), <b>costs</b>, and a <b>reasonable range of alternatives</b>. Never the advisor's commission.</li>
+  <li><b>Client insists on an unsuitable trade</b>: advise against it; you may proceed only if the client still instructs you to, and you <b>record</b> it.</li>
+  <li>Short horizon or liquidity need → capital preservation (HISA, T-bills, short GICs). Low capacity or near retirement → avoid leverage and speculation.</li>
+</ul>
+
+<h3>Vulnerable clients</h3>
+<ul>
+  <li>Signs of <b>financial exploitation</b> or <b>diminished mental capacity</b>: escalate internally, contact the <b>trusted contact person</b>, and consider a <b>temporary hold</b>. The client must be notified with reasons, and the hold reviewed regularly.</li>
+</ul>
+<div class="trap"><b>Exam trap:</b> "Low risk" does not mean suitable. A 5-year non-redeemable GIC is unsuitable for money needed in 6 months.</div>
+`,
+
+complaints: `
+<h3>Complaint handling</h3>
+<ul>
+  <li>A complaint can be <b>written or verbal</b>. Any expression of dissatisfaction alleging harm, misconduct or a rule breach counts.</li>
+  <li>Give complaint procedures to clients <b>at account opening</b>.</li>
+  <li><b>Acknowledge within 5 business days</b>; <b>substantive (final) response within 90 days</b>. If it runs late, tell the client why and that they can go to OBSI.</li>
+  <li>Handled by the firm's designated complaint process, with supervision. The advisor involved can't be the only one handling it.</li>
+  <li>Advisors <b>can't settle privately</b> (e.g., paying out of pocket). Settlement agreements <b>can't stop clients from reporting to regulators</b>.</li>
+  <li>Trade errors and unauthorized trades must be <b>escalated and corrected by the firm</b>, never hidden.</li>
+</ul>
+
+<h3>Where clients can go</h3>
+<ul>
+  <li><b>OBSI</b>: free, up to <b>$350,000</b>. Available after 90 days without a final response, or within <b>180 days</b> of the firm's final response.</li>
+  <li><b>CIRO</b> disciplines firms and individuals but generally <b>doesn't award compensation</b>. Other routes: arbitration, the courts.</li>
+</ul>
+
+<h3>Client reporting (CRM2)</h3>
+<ul>
+  <li><b>Trade confirmations</b>: security, quantity, price, commission, trade and settlement dates, principal or agent.</li>
+  <li><b>Statements</b>: <b>monthly</b> if there was activity, at least <b>quarterly</b> otherwise, with <b>position cost</b> (book cost) and market value.</li>
+  <li><b>Annual charges and compensation report</b>: operating and transaction charges, plus trailers received by the dealer.</li>
+  <li><b>Annual performance report</b>: <b>money-weighted</b> % returns for 1, 3, 5, 10 years and since inception.</li>
+</ul>
+`,
+
+umir: `
+<h3>Market integrity rules (UMIR)</h3>
+<ul>
+  <li><b>UMIR</b> = Universal Market Integrity Rules, administered by <b>CIRO</b>, covering trading on Canadian equity marketplaces (exchanges and ATSs).</li>
+  <li><b>Client priority</b>: client orders go before employee or firm orders at the same price.</li>
+  <li><b>Best execution</b>: the most advantageous terms reasonably available (price, speed, certainty, cost).</li>
+  <li><b>Order protection</b>: no <b>trade-throughs</b>, i.e., don't fill at a worse price while a better visible order is on another marketplace.</li>
+  <li><b>Order marking</b>: short sales marked "short"; insider, significant shareholder and principal orders marked as such.</li>
+  <li><b>Trading halts</b>: no trading on any Canadian marketplace until the halt is lifted.</li>
+  <li><b>Principal</b> = the firm trades from its own inventory. <b>Agent</b> = the firm acts as broker.</li>
+  <li><b>Failed delivery</b> → the buying dealer can initiate a <b>buy-in</b>.</li>
+</ul>
+
+<h3>Manipulative and deceptive trading (prohibited)</h3>
+<table>
+  <tr><th>Practice</th><th>What it looks like</th></tr>
+  <tr><td>Wash trading</td><td>Buying and selling between accounts with the same owner (no change in beneficial ownership)</td></tr>
+  <tr><td>Spoofing / layering</td><td>Orders you never intend to fill, placed to move the price</td></tr>
+  <tr><td>High closing</td><td>Buying at the close to lift the closing price (e.g., quarter-end)</td></tr>
+  <tr><td>Pump and dump</td><td>Hype a stock with false information, then sell</td></tr>
+  <tr><td>Front running</td><td>Trading the stock <i>or its options</i> ahead of a known client order</td></tr>
+  <tr><td>Insider trading / tipping</td><td>Trading on, or passing on, material non-public information, however you heard it</td></tr>
+</table>
+
+<h3>Gatekeeping</h3>
+<ul>
+  <li>Advisors are <b>gatekeepers</b>: refuse orders that look manipulative and escalate to compliance.</li>
+  <li>Firms use <b>information barriers</b> and <b>watch/restricted lists</b> to contain inside information.</li>
+</ul>
+`,
+
+ethics: `
+<h3>Ethics</h3>
+<ul>
+  <li>Deal <b>fairly, honestly and in good faith</b>. Ethics goes <b>beyond the minimum rules</b>: ask what's fair to the client.</li>
+  <li>Client information is <b>confidential</b>. Don't share it with family members without authorization.</li>
+</ul>
+
+<h3>Conflicts of interest (Client Focused Reforms)</h3>
+<ul>
+  <li>Identify material conflicts, then <b>address them in the client's best interest</b>, or <b>avoid</b> them. <b>Disclosure alone is not enough.</b></li>
+  <li>Common conflicts: <b>proprietary products</b> and higher payouts, <b>sales contests</b>, family ties to issuers, <b>gifts</b>, outside activities, referral fees.</li>
+</ul>
+
+<h3>Prohibited or restricted conduct</h3>
+<ul>
+  <li><b>Churning</b>; <b>off-book</b> selling ("selling away"); <b>unauthorized discretionary trading</b> (discretion needs written authority).</li>
+  <li><b>Guaranteeing clients against loss</b>; misleading communications, including social media hype and misleading titles.</li>
+  <li><b>Borrowing from or lending to clients</b>; acting as <b>POA, executor or beneficiary</b> for non-family clients; accepting large gifts.</li>
+  <li><b>Outside activities</b> need disclosure and firm approval. <b>Referral fees</b> go only through a written, disclosed firm arrangement.</li>
+  <li><b>Trade errors</b> are reported and fixed at the firm's cost, never moved to another client's account.</li>
+</ul>
+`,
+
+recs: `
+<h3>Matching needs to solutions</h3>
+<table>
+  <tr><th>Client situation</th><th>Typical recommendation</th></tr>
+  <tr><td>Saving for a child's education</td><td><b>RESP</b> (CESG: 20% on $2,500/yr)</td></tr>
+  <tr><td>First home in a few years</td><td><b>FHSA</b> (deductible + tax-free withdrawal); HBP from an RRSP</td></tr>
+  <tr><td>High income now, lower in retirement</td><td><b>RRSP</b></td></tr>
+  <tr><td>Low income or needs flexibility</td><td><b>TFSA</b></td></tr>
+  <tr><td>Income-splitting couple</td><td><b>Spousal RRSP</b></td></tr>
+  <tr><td>Need money within ~1–2 years</td><td>HISA, T-bills, short or cashable GICs</td></tr>
+  <tr><td>Retiree needing predictable income</td><td><b>Ladder</b> of GICs or high-quality bonds</td></tr>
+  <tr><td>Worried about inflation</td><td><b>Real Return Bonds</b></td></tr>
+  <tr><td>U.S. exposure without currency risk</td><td><b>Currency-hedged ETF</b></td></tr>
+  <tr><td>Income in a flat market</td><td><b>Covered calls</b></td></tr>
+  <tr><td>Protect gains without selling</td><td><b>Protective puts</b></td></tr>
+  <tr><td>Principal guarantee + some upside</td><td>Market-linked GIC / PPN (hold to maturity)</td></tr>
+  <tr><td>Avoid probate, wants guarantees</td><td><b>Segregated fund</b> with a named beneficiary</td></tr>
+  <tr><td>Nervous about lump-sum timing</td><td><b>Dollar-cost averaging</b></td></tr>
+  <tr><td>Concentrated in one stock</td><td><b>Diversify</b></td></tr>
+  <tr><td>High-interest debt, no emergency fund</td><td>Pay down debt first</td></tr>
+  <tr><td>Turning 71</td><td>Convert RRSP → <b>RRIF</b> or annuity</td></tr>
+</table>
+
+<h3>Tax-smart placement (asset location)</h3>
+<ul>
+  <li>Hold <b>interest-paying</b> investments in registered plans (interest is the most heavily taxed).</li>
+  <li>Hold <b>Canadian dividend</b> and capital-gain assets in non-registered accounts (dividend tax credit; 50% inclusion).</li>
+  <li>Hold <b>U.S. dividend</b> stocks in an <b>RRSP</b> (no U.S. withholding tax under the treaty; a TFSA doesn't get this).</li>
+  <li><b>Document the rationale</b> for every recommendation.</li>
 </ul>
 `
 };
