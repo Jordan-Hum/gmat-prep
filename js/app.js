@@ -232,6 +232,7 @@
           <label for="exam-date"><b>${ex.name} exam date</b></label>
           <input type="date" id="exam-date" value="${esc(S.dates[S.track] || "")}">
           <span class="spacer"></span>
+          <a class="btn small" href="#/backup">💾 Back up / restore</a>
           <button class="btn small" id="reset">Reset all progress</button>
         </div>
         ${lastExam ? `<p class="muted" style="margin-bottom:0">Last ${ex.name} mock: ${pct(lastExam.score, lastExam.total)}% (${lastExam.score}/${lastExam.total}) on ${new Date(lastExam.date).toLocaleDateString()}</p>` : ""}
@@ -696,6 +697,117 @@
       <div class="trap">Exam details (length, time, pass mark) are based on CIRO's published syllabi as of 2026. Confirm them in the exam booking confirmation or on ciro.ca, since CIRO can update them.</div>`;
     $app.querySelectorAll("[data-el]").forEach(b => b.onclick = () => practiseSection(id, b.dataset.el));
     document.getElementById("switch-other").onclick = () => setTrack(otherTrack());
+  };
+
+  // ----- Backup & restore -----
+  // Progress lives in this browser only, so a backup is how it moves between devices.
+  const BACKUP_TAG = "CIROPREP1:";
+  function backupData() {
+    return { v: 1, saved: Date.now(), q: S.q, exams: S.exams, cards: S.cards, dates: S.dates };
+  }
+  function toCode(obj) {
+    const json = JSON.stringify(obj);
+    const bytes = new TextEncoder().encode(json);
+    let bin = "";
+    bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return BACKUP_TAG + btoa(bin);
+  }
+  function fromText(text) {
+    text = String(text || "").trim();
+    let json = text;
+    if (text.startsWith(BACKUP_TAG)) {
+      const bin = atob(text.slice(BACKUP_TAG.length).replace(/\s+/g, ""));
+      json = new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+    }
+    const d = JSON.parse(json);
+    if (!d || typeof d !== "object" || typeof d.q !== "object") throw new Error("not a backup");
+    return d;
+  }
+  // Merge instead of overwrite, so restoring never loses work done on this device.
+  function mergeBackup(d) {
+    let added = 0, updated = 0;
+    for (const [id, r] of Object.entries(d.q || {})) {
+      const mine = S.q[id];
+      if (!mine) { S.q[id] = r; added++; }
+      else if ((r.ts || 0) > (mine.ts || 0)) { S.q[id] = r; updated++; }
+    }
+    const have = new Set(S.exams.map(e => e.date + ":" + e.score + ":" + e.total));
+    let exams = 0;
+    for (const e of d.exams || []) {
+      const k = e.date + ":" + e.score + ":" + e.total;
+      if (!have.has(k)) { S.exams.push(e); have.add(k); exams++; }
+    }
+    S.exams.sort((a, b) => a.date - b.date);
+    Object.assign(S.cards, d.cards || {});
+    for (const [k, v] of Object.entries(d.dates || {})) if (v && !S.dates[k]) S.dates[k] = v;
+    save();
+    return { added, updated, exams };
+  }
+
+  views.backup = function () {
+    const nQ = Object.keys(S.q).length;
+    const code = toCode(backupData());
+    $app.innerHTML = `
+      <a href="#/" class="muted">← Home</a>
+      <h1>Back up & restore</h1>
+      <p class="sub">Progress is saved only in this browser. To move it to another phone or computer, save a backup here and restore it there. Restoring <b>adds</b> the backup to what's already on that device (for each question, the most recent answer wins), so nothing gets lost.</p>
+
+      <div class="card">
+        <b>1. Save a backup from this device</b>
+        <p class="muted" style="margin:4px 0 12px">This device has ${nQ} answered question${nQ === 1 ? "" : "s"} and ${S.exams.length} mock exam${S.exams.length === 1 ? "" : "s"}.</p>
+        <div class="row">
+          <button class="btn primary" id="dl">⬇️ Download backup file</button>
+          <button class="btn" id="copy">📋 Copy backup code</button>
+        </div>
+        <p class="muted" style="margin:10px 0 0;font-size:14px">Tip: copy the code and text or email it to yourself, then paste it on the other device.</p>
+        <textarea id="code-out" readonly rows="3" class="code">${esc(code)}</textarea>
+      </div>
+
+      <div class="card mt">
+        <b>2. Restore on the other device</b>
+        <p class="muted" style="margin:4px 0 12px">Open this same page on the other device, then load the file or paste the code.</p>
+        <div class="row">
+          <label class="btn primary" for="file">⬆️ Restore from file</label>
+          <input type="file" id="file" accept=".json,.txt,application/json,text/plain" hidden>
+        </div>
+        <label class="field" for="code-in">…or paste a backup code</label>
+        <textarea id="code-in" rows="3" class="code" placeholder="CIROPREP1:…"></textarea>
+        <div class="row mt"><button class="btn" id="paste-restore">Restore from code</button></div>
+        <p id="msg" class="mt" role="status"></p>
+      </div>`;
+
+    const msg = document.getElementById("msg");
+    const report = (ok, text) => { msg.innerHTML = text; msg.style.color = ok ? "var(--good)" : "var(--bad)"; };
+    const restore = text => {
+      try {
+        const r = mergeBackup(fromText(text));
+        report(true, `✓ Restored: ${r.added} new answers, ${r.updated} updated, ${r.exams} mock exam${r.exams === 1 ? "" : "s"} added. <a href="#/">Go to home →</a>`);
+      } catch (e) {
+        report(false, "That doesn't look like a CIRO Prep backup. Check that you copied the whole code.");
+      }
+    };
+    document.getElementById("dl").onclick = () => {
+      const blob = new Blob([JSON.stringify(backupData())], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "ciro-prep-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+    document.getElementById("copy").onclick = async () => {
+      const ta = document.getElementById("code-out");
+      try { await navigator.clipboard.writeText(ta.value); }
+      catch (e) { ta.select(); document.execCommand("copy"); }
+      report(true, "✓ Backup code copied. Paste it on the other device.");
+    };
+    document.getElementById("file").onchange = e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => restore(rd.result);
+      rd.readAsText(f);
+    };
+    document.getElementById("paste-restore").onclick = () => restore(document.getElementById("code-in").value);
   };
 
   views.glossary = function () {
