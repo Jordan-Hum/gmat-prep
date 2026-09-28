@@ -781,19 +781,21 @@
   const bytesToB64 = u8 => btoa(String.fromCharCode(...u8));
   const b64ToBytes = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
 
-  async function deriveKey(password, salt) {
+  // Deliberately slow (600k PBKDF2 rounds) so guessing the password offline is expensive.
+  const KDF_ITERATIONS = 600000;
+  async function deriveKey(password, salt, iterations) {
     const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
-    return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" },
+    return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: iterations || KDF_ITERATIONS, hash: "SHA-256" },
       base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
   }
   async function encryptToken(token, password) {
     const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
-    const key = await deriveKey(password, salt);
+    const key = await deriveKey(password, salt, KDF_ITERATIONS);
     const data = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(token)));
-    return { salt: bytesToB64(salt), iv: bytesToB64(iv), token: bytesToB64(data) };
+    return { iter: KDF_ITERATIONS, salt: bytesToB64(salt), iv: bytesToB64(iv), token: bytesToB64(data) };
   }
   async function decryptToken(cfg, password) {
-    const key = await deriveKey(password, b64ToBytes(cfg.salt));
+    const key = await deriveKey(password, b64ToBytes(cfg.salt), cfg.iter || 310000);
     const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToBytes(cfg.iv) }, key, b64ToBytes(cfg.token));
     return new TextDecoder().decode(plain);
   }
@@ -959,7 +961,7 @@
     if (check.status === 401) { sync = null; throw new Error("GitHub didn't accept that token. Check you copied all of it."); }
     if (!check.ok && check.status !== 404) { sync = null; throw new Error("That token can't read the " + owner + "/" + repo + " repo."); }
     const enc = await encryptToken(token, password);
-    const cfg = { v: 1, owner, repo, salt: enc.salt, iv: enc.iv, token: enc.token };
+    const cfg = { v: 1, owner, repo, iter: enc.iter, salt: enc.salt, iv: enc.iv, token: enc.token };
     const existing = await gh("GET", repoPath(sync, "/contents/" + SYNC_CONFIG), null, { token });
     const put = await gh("PUT", repoPath(sync, "/contents/" + SYNC_CONFIG),
       Object.assign({ message: "Set up progress sync (encrypted token)", content: b64encode(JSON.stringify(cfg, null, 2)) },
@@ -1120,7 +1122,7 @@
         <label class="field" style="margin:0">Choose a sync password<input id="s-pw" type="password" autocomplete="new-password" class="text-in"></label>
         <label class="field" style="margin:0">Repeat password<input id="s-pw2" type="password" autocomplete="new-password" class="text-in"></label>
       </div>
-      <p class="muted" style="font-size:14px;margin:12px 0">The token is saved in the repo only in encrypted form, locked with this password, and each device needs the password once. Because the repo is public, use a long password (at least 12 characters, e.g. four random words). The progress file itself (just answer stats) will also be visible in the repo.</p>
+      <p class="muted" style="font-size:14px;margin:12px 0">The token is saved in the repo only in encrypted form, locked with this password, and each device needs the password once. Because the repo is public, the encrypted token is too, so a longer password is safer (at least 8 characters). The progress file itself (just answer stats) will also be visible in the repo.</p>
       <div class="row">
         <button class="btn primary" id="s-go">Set up sync</button>
         ${sync || forceSetup ? `<button class="btn" id="s-cancel">Cancel</button>` : ""}
@@ -1133,7 +1135,7 @@
       const owner = v("s-owner"), repo = v("s-repo"), token = v("s-token"), pw = document.getElementById("s-pw").value;
       if (!owner || !repo) return say("cloud-msg", false, "Enter the GitHub owner and repository.");
       if (!/^(github_pat_|ghp_)/.test(token)) return say("cloud-msg", false, "That doesn't look like a GitHub token (it should start with github_pat_).");
-      if (pw.length < 12) return say("cloud-msg", false, "Use a password of at least 12 characters.");
+      if (pw.length < 8) return say("cloud-msg", false, "Use a password of at least 8 characters.");
       if (pw !== document.getElementById("s-pw2").value) return say("cloud-msg", false, "The passwords don't match.");
       const btn = document.getElementById("s-go");
       btn.disabled = true; say("cloud-msg", true, "Setting up…");
