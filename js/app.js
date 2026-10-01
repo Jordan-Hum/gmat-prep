@@ -12,10 +12,14 @@
   }
   const KIND_LABEL = { s: "Scenario", c: "Calculation", r: "Concept" };
   const QUESTIONS = [];
-  for (const t of TOPICS) {
-    for (const q of window.QB[t.id] || []) {
-      const kind = q[3] || (/\d/.test(q[0]) && /[=×÷]/.test(q[2]) ? "c" : "r");
-      QUESTIONS.push({ id: t.id + "-" + hashId(q[0]), topic: t.id, text: q[0], opts: q[1], exp: q[2], kind });
+  // Standard bank (window.QB) plus exam-level questions (window.QB_HARD): longer scenarios written to
+  // match the real exam's difficulty.
+  for (const [bank, hard] of [[window.QB, false], [window.QB_HARD || {}, true]]) {
+    for (const t of TOPICS) {
+      for (const q of bank[t.id] || []) {
+        const kind = q[3] || (/\d/.test(q[0]) && /[=×÷]/.test(q[2]) ? "c" : "r");
+        QUESTIONS.push({ id: t.id + "-" + hashId(q[0]), topic: t.id, text: q[0], opts: q[1], exp: q[2], kind, hard });
+      }
     }
   }
   const QMAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
@@ -112,8 +116,9 @@
     location.hash = "#/quiz";
   }
 
-  function pickQuestions(topics, filter, count, kind) {
-    let pool = QUESTIONS.filter(q => topics.includes(q.topic) && (!kind || q.kind === kind));
+  function pickQuestions(topics, filter, count, kind, level) {
+    let pool = QUESTIONS.filter(q => topics.includes(q.topic) && (!kind || q.kind === kind)
+      && (!level || (level === "hard") === q.hard));
     if (filter === "unseen") pool = pool.filter(q => !S.q[q.id]);
     if (filter === "missed") pool = pool.filter(q => S.q[q.id] && !S.q[q.id].last);
     if (filter === "weak") {
@@ -139,13 +144,14 @@
     raw.map((r, i) => [r - counts[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { counts[i]++; left--; } });
     return counts;
   }
-  function weightedExamQuestions(exam, n) {
+  function weightedExamQuestions(exam, n, mixed) {
     const cfg = window.EXAMS[exam];
     const counts = sectionCounts(exam, n);
     const out = [];
     for (const [i, el] of cfg.elements.entries()) {
-      // Prefer questions not seen yet, then previously missed, then the rest.
-      const score = q => { const r = S.q[q.id]; return !r ? 0 : r.last ? 2 : 1; };
+      // Exam-level questions first (unless mixed), and within that: unseen, then missed, then the rest.
+      const fresh = q => { const r = S.q[q.id]; return !r ? 0 : r.last ? 2 : 1; };
+      const score = q => (mixed || q.hard ? 0 : 3) + fresh(q);
       const pool = shuffle(elementPool(exam, el.id)).sort((a, b) => score(a) - score(b));
       out.push(...pool.slice(0, counts[i]).map(q => q.id));
     }
@@ -204,6 +210,7 @@
 
       <div class="row mt">
         <button class="btn primary" id="go-daily">⚡ Quick 20: weakest areas</button>
+        <button class="btn primary" id="go-hard">🎯 Exam-level 20</button>
         <a class="btn accent" href="#/exam">⏱️ ${ex.name} mock exam</a>
         <button class="btn" id="go-missed" ${missed ? "" : "disabled"}>🔁 Redo ${missed} missed</button>
       </div>
@@ -246,6 +253,8 @@
 
     document.getElementById("go-daily").onclick = () =>
       startSession("practice", pickQuestions(trackTopicIds(), "weak", 20), { title: `${ex.name} Quick 20` });
+    document.getElementById("go-hard").onclick = () =>
+      startSession("practice", pickQuestions(trackTopicIds(), "weak", 20, "", "hard"), { title: `${ex.name} Exam-level 20` });
     document.getElementById("go-missed").onclick = () =>
       startSession("practice", pickQuestions(trackTopicIds(), "missed", 999), { title: `${ex.name} review missed` });
     $app.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => practiseSection(S.track, b.dataset.sec));
@@ -344,6 +353,12 @@
           <label class="chip" data-v="unseen">Unseen only</label>
           <label class="chip" data-v="missed">Missed only</label>
         </div>
+        <label class="field">Difficulty</label>
+        <div class="chips" id="level">
+          <label class="chip on" data-v="">All</label>
+          <label class="chip" data-v="hard">🎯 Exam-level only</label>
+          <label class="chip" data-v="std">Standard only</label>
+        </div>
         <label class="field">Question type</label>
         <div class="chips" id="kind">
           <label class="chip on" data-v="">All types</label>
@@ -359,10 +374,10 @@
         <button class="btn primary" id="start">Start practice</button>
       </div>`;
 
-    let filter = "weak", count = 20, kind = "";
+    let filter = "weak", count = 20, kind = "", level = "";
     const avail = document.getElementById("avail");
     const update = () => {
-      const n = pickQuestions([...sel], filter, 9999, kind).length;
+      const n = pickQuestions([...sel], filter, 9999, kind, level).length;
       avail.textContent = n + " questions available with these settings.";
       document.getElementById("start").disabled = n === 0;
     };
@@ -385,10 +400,12 @@
     single("filter", v => filter = v);
     single("count", v => count = +v);
     single("kind", v => kind = v);
-    document.getElementById("start").onclick = () => startSession("practice", pickQuestions([...sel], filter, count, kind));
+    single("level", v => level = v);
+    document.getElementById("start").onclick = () => startSession("practice", pickQuestions([...sel], filter, count, kind, level));
     update();
   };
 
+  let mockMixed = false;
   views.exam = function () {
     const ex = EX();
     const hist = S.exams.filter(e => (e.track || "cire") === S.track).reverse();
@@ -397,6 +414,10 @@
     $app.innerHTML = `
       <h1>${ex.name} Mock Exam</h1>
       <p class="sub">Timed, with no feedback until you submit, like the real thing. Every mock draws questions from each ${ex.name} section in the same proportions as the real exam, with the same time per question (${Math.round(perQ)} seconds). ${PASS_MARK * 100}% is shown as the target line. Questions you haven't seen come up first.</p>
+      <div class="chips" id="mock-level" style="margin-bottom:14px">
+        <label class="chip ${mockMixed ? "" : "on"}" data-v="hard">🎯 Exam-level questions (recommended)</label>
+        <label class="chip ${mockMixed ? "on" : ""}" data-v="mixed">Mixed difficulty</label>
+      </div>
       <div class="grid grid-3">
         ${sizes.map(([n, lbl, cls]) => `
           <div class="card">
@@ -413,9 +434,10 @@
             <div class="bar"><i class="${barClass(p)}" style="width:${p}%"></i></div></div></div>`;
         }).join("") : `<div class="empty">No ${ex.name} mock exams yet.</div>`}
       </div>`;
+    $app.querySelectorAll("#mock-level .chip").forEach(c => c.onclick = () => { mockMixed = c.dataset.v === "mixed"; views.exam(); });
     $app.querySelectorAll("[data-n]").forEach(b => b.onclick = () => {
       const n = +b.dataset.n;
-      startSession("exam", weightedExamQuestions(S.track, n),
+      startSession("exam", weightedExamQuestions(S.track, n, mockMixed),
         { title: n === ex.questions ? `${ex.name} Mock Exam` : `${ex.name} Mock (${n})`, seconds: Math.round(n * perQ) });
     });
   };
@@ -444,7 +466,7 @@
         <button class="btn small" id="quit">${exam ? "Submit" : "End"}</button>
       </div>
       <div class="card">
-        <div class="row"><span class="tag">${TOPIC[q.topic].icon} ${esc(TOPIC[q.topic].name)} · ${KIND_LABEL[q.kind]}</span><span class="spacer"></span>
+        <div class="row"><span class="tag">${TOPIC[q.topic].icon} ${esc(TOPIC[q.topic].name)} · ${KIND_LABEL[q.kind]}${q.hard ? ` · <b class="lvl">🎯 Exam-level</b>` : ""}</span><span class="spacer"></span>
           ${exam ? `<button class="btn small" id="flag">${it.flag ? "🚩 Flagged" : "⚑ Flag"}</button>` : ""}</div>
         <div class="q-text">${esc(q.text)}</div>
         <div id="opts">
@@ -674,7 +696,7 @@
       return `<tr>
         <td><b>${el.id}</b> ${esc(el.name)}<br><span class="tag">${topics.map(t => t.icon + " " + esc(t.name)).join(" · ")}</span></td>
         <td>${el.n} <span class="tag">(${pct(el.n, e.questions)}%)</span></td>
-        <td>${st.total}</td>
+        <td>${st.total} <span class="tag">(${elementPool(id, el.id).filter(q => q.hard).length} exam-level)</span></td>
         <td>${st.seen ? `${st.acc}%<div class="bar"><i class="${barClass(st.acc)}" style="width:${st.acc}%"></i></div>` : `<span class="muted">—</span>`}</td>
         <td><button class="btn small" data-el="${el.id}">Practise</button></td>
       </tr>`;
@@ -682,12 +704,13 @@
     const notFocus = TOPICS.filter(t => !t[id]);
     $app.innerHTML = `
       <h1>${e.name} Guide</h1>
-      <p class="sub"><b>${esc(e.full)}.</b> ${esc(e.blurb)} ${e.questions} multiple-choice questions in ${e.minutes / 60} hours, mostly short client scenarios.</p>
+      <p class="sub"><b>${esc(e.full)}.</b> ${esc(e.blurb)} ${e.questions} multiple-choice questions in ${e.minutes / 60} hours, mostly client scenarios.</p>
       <div class="card">
         <b>${e.name} question bank: ${pool.length} questions</b>
         <p style="margin:6px 0 0">🧑‍💼 <b>${kinds.s}</b> client scenarios (apply the rules to a situation, like the real exam) ·
         🧮 <b>${kinds.c}</b> calculations (each tests a different formula) ·
         📘 <b>${kinds.r}</b> concept checks</p>
+        <p style="margin:6px 0 0">🎯 <b>${pool.filter(q => q.hard).length}</b> of these are <b>exam-level</b>: longer scenarios where every answer is plausible, written to match the real exam. Mock exams use them first.</p>
       </div>
       <h2>Sections</h2>
       <div class="card notes"><table>
