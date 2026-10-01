@@ -395,14 +395,22 @@ onboard: `
   <li><b>Order-execution-only</b>: no suitability obligation, but identity verification and AML rules still apply.</li>
 </ul>
 
+<h3>Retail vs institutional clients (CIRO)</h3>
+<ul>
+  <li><b>Retail client</b> = anyone who isn't an institutional client.</li>
+  <li><b>Institutional</b>: accepted counterparties and institutions, regulated entities, non-individual registrants, and <b>non-individuals with over $10 million</b> in securities and bullion. An <b>individual over $10 million</b>, or a <b>hedger</b>, qualifies only by <b>requesting and consenting</b>.</li>
+  <li>Institutional clients get fewer protections: <b>no relationship disclosure required</b>, and a non-individual institutional client can <b>waive suitability in writing</b> if it can evaluate recommendations itself.</li>
+  <li><b>Accredited investors</b> (NI 45-106) can buy without a prospectus: financial assets over <b>$1M</b>, income over <b>$200K</b> ($300K with a spouse) for two years, or net assets of <b>$5M</b>.</li>
+</ul>
+
 <h3>Anti-money laundering (FINTRAC)</h3>
 <ul>
   <li><b>Identity verification</b> methods: government-issued photo ID, credit file, or <b>dual-process</b> (two different reliable sources).</li>
-  <li><b>Entities</b>: identify <b>beneficial owners with 25% or more</b> ownership or control.</li>
+  <li><b>Entities</b> (corporations, partnerships, trusts): identify <b>beneficial owners with 25% or more</b> ownership or control, within <b>30 days</b> of opening the account.</li>
   <li>Stages: <b>placement → layering → integration</b>.</li>
   <li><b>Large Cash Transaction Report</b>: <b>$10,000+</b> in cash, including multiple amounts within <b>24 hours</b> (e.g., $6,000 + $5,000 the same day).</li>
   <li><b>Suspicious Transaction Report</b>: as soon as practicable, <b>no minimum</b>. Structuring deposits just under $10,000 is a red flag. <b>Never tip off</b> the client.</li>
-  <li><b>Terrorist property report</b>: immediately. <b>PEPs</b>: enhanced due diligence (source of funds). Keep records for <b>5 years</b>.</li>
+  <li><b>Terrorist property report</b>: immediately. <b>PEPs</b>: enhanced due diligence (source of funds). Keep records for <b>at least 7 years</b>: CIRO's standard, and the answer its practice exam expects (the PCMLTFA minimum is 5 years).</li>
 </ul>
 <div class="trap"><b>Exam trap:</b> A trusted contact person is <b>not</b> a power of attorney, and can never place trades.</div>
 `,
@@ -450,7 +458,10 @@ complaints: `
 <h3>Where clients can go</h3>
 <ul>
   <li><b>OBSI</b>: free, up to <b>$350,000</b>. Available after 90 days without a final response, or within <b>180 days</b> of the firm's final response.</li>
-  <li><b>CIRO</b> disciplines firms and individuals but generally <b>doesn't award compensation</b>. Other routes: arbitration, the courts.</li>
+  <li><b>CIRO</b> disciplines firms and individuals but generally <b>doesn't award compensation</b>.</li>
+  <li><b>CIRO arbitration</b>: a <b>binding</b> decision, suited to more complex disputes, cheaper and faster than court (awards up to $500,000). <b>Courts</b>: no cap, but slow and costly.</li>
+  <li><b>Reporting</b>: serious allegations (theft, fraud, misappropriation, unauthorized trading, manipulation) must be <b>reported to CIRO</b>. <b>Service complaints</b> (rudeness, delays) are handled internally and aren't reportable. Keep complaint records <b>7 years</b>.</li>
+  <li><b>Institutional clients</b>: complaint rules still apply, but the process differs from the retail one.</li>
 </ul>
 
 <h3>Client reporting (CRM2)</h3>

@@ -86,8 +86,8 @@ window.QB = {
       ["Enhanced due diligence, including source of funds", "An automatic refusal to open an account for that person", "No special requirements beyond standard ID verification", "Mandatory reporting to OBSI within 30 days of opening"],
       "Firms must determine whether clients are PEPs or heads of international organizations and apply enhanced measures."],
     ["Client records and identity verification records under AML rules must generally be kept for at least:",
-      ["5 years","1 year","10 years","Until the account is closed"],
-      "Most FINTRAC records must be kept for at least five years."]
+      ["7 years","2 years","10 years","Until the account is closed"],
+      "CIRO's practice exam expects seven years (CIRO's record-keeping standard). That also covers the PCMLTFA's own five-year minimum."]
   ],
 
   kyc: [
