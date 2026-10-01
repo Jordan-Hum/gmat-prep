@@ -160,6 +160,15 @@ h2 { font-size: 20px; margin: 28px 0 12px; }
   background: var(--primary-soft); color: var(--text); border-left: 4px solid var(--primary);
   padding: 8px 12px; border-radius: 6px; margin: 8px 0;
 }
+.notes .syl {
+  margin: 0 0 14px; padding: 8px 12px; border-radius: 6px; font-size: 13px;
+  background: var(--surface-2); color: var(--muted);
+}
+.key {
+  background: var(--good-soft); border-left: 4px solid var(--good);
+  padding: 10px 12px; border-radius: 6px; margin: 20px 0 4px;
+}
+.key ul { margin: 6px 0 0; }
 .trap {
   background: var(--warn-soft); border-left: 4px solid var(--warn);
   padding: 10px 12px; border-radius: 6px; margin: 16px 0 4px;
