@@ -169,6 +169,16 @@ h2 { font-size: 20px; margin: 28px 0 12px; }
   padding: 10px 12px; border-radius: 6px; margin: 20px 0 4px;
 }
 .key ul { margin: 6px 0 0; }
+.notes p { margin: 8px 0; line-height: 1.6; }
+.notes h4 { margin: 16px 0 6px; font-size: 15px; }
+.ex {
+  background: var(--surface-2); border-left: 4px solid var(--muted);
+  padding: 10px 12px; border-radius: 6px; margin: 10px 0;
+}
+.how {
+  background: var(--primary-soft); border-left: 4px solid var(--primary);
+  padding: 8px 12px; border-radius: 6px; margin: 10px 0; font-size: 14px;
+}
 .trap {
   background: var(--warn-soft); border-left: 4px solid var(--warn);
   padding: 10px 12px; border-radius: 6px; margin: 16px 0 4px;
