@@ -285,3 +285,15 @@ textarea.code {
 .muted { color: var(--muted); }
 .mt { margin-top: 16px; }
 footer { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 16px 40px; }
+
+/* CFA Level II item sets: the vignette stays above each question */
+.vignette {
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2);
+  margin: 10px 0 14px; padding: 0 12px;
+}
+.vignette summary { cursor: pointer; padding: 10px 0; font-weight: 600; }
+.vignette .case-body { padding: 0 0 12px; font-size: 14.5px; line-height: 1.55; }
+.vignette .case-body p { margin: 6px 0; }
+.vignette table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13.5px; display: block; overflow-x: auto; }
+.vignette th, .vignette td { border: 1px solid var(--border); padding: 5px 7px; text-align: left; }
+.vignette th { background: var(--surface); }
