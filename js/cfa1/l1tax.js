@@ -96,7 +96,7 @@ window.QB_HARD.l1tax = [
     ["Deferred tax asset", "Deferred tax liability", "Reduction in taxes payable this year"],
     "Loss carryforwards reduce future taxes, so they're DTAs (subject to a valuation allowance or 'probable' test).", "r"],
   ["Interest income that is permanently exempt from tax will most likely cause the company's:",
-    ["Effective tax rate to fall below the statutory rate", "Deferred tax liability to rise each year", "Deferred tax asset to build up over time"],
+    ["Effective tax rate below the statutory rate", "Deferred tax liability to rise each year", "Deferred tax asset to build up over time"],
     "Permanent differences don't create deferred taxes; tax-exempt income lowers the effective rate.", "r"],
   ["Pre-tax income is $1,200 and income tax expense is $330. The effective tax rate is closest to:",
     ["27.5%", "30.0%", "36.4%"],
