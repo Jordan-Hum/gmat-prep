@@ -56,9 +56,24 @@
     return fresh();
   }
   function fresh() {
-    return { q: {}, exams: [], cards: {}, dates: Object.assign({}, DEFAULT_DATES), track: "cire", session: null };
+    return { q: {}, exams: [], cards: {}, read: {}, dates: Object.assign({}, DEFAULT_DATES), track: "cire", session: null };
+  }
+  // CFA Level I used to have one topic per topic area; it now has one per learning module (each topic
+  // names its old area in `legacy`). Questions kept their text, so answers saved under the old ids move over.
+  const LEGACY = {};
+  for (const t of TOPICS) if (t.legacy) {
+    for (const q of (window.QB_HARD || {})[t.id] || []) LEGACY[t.legacy + "-" + hashId(q[0])] = t.id + "-" + hashId(q[0]);
+  }
+  function migrateIds() {
+    for (const [old, now] of Object.entries(LEGACY)) {
+      const r = S.q[old];
+      if (!r) continue;
+      if (!S.q[now] || (r.ts || 0) > (S.q[now].ts || 0)) S.q[now] = r;
+      delete S.q[old];
+    }
   }
   let S = load();
+  migrateIds();
   // Cloud sync settings for this device (see "Cloud sync" below). Null when sync isn't set up here.
   const SYNC_KEY = "ciro-sync-v1";
   let sync = null;
@@ -264,6 +279,12 @@
         <button class="btn" id="go-missed" ${missed ? "" : "disabled"}>🔁 Redo ${missed} missed</button>
       </div>
 
+      ${manyLessons() ? (lp => `<div class="card mt"><b>📖 Lessons</b>
+        <p style="margin:6px 0 8px">${lp.done} of ${lp.total} lessons studied. Each lesson teaches one learning module from scratch and has its own practice questions.</p>
+        <div class="bar"><i class="good" style="width:${pct(lp.done, lp.total)}%"></i></div>
+        <div class="row mt">${lp.next ? `<a class="btn primary small" href="#/notes/${lp.next.id}">${lp.done ? "Continue" : "Start"}: ${esc(lp.next.name)}</a>` : `<span>All lessons studied 🎉</span>`}
+        <a class="btn small" href="#/notes">All lessons</a></div></div>`)(lessonProgress()) : ""}
+
       ${studyPlan(dl, sections)}
 
       <h2>${ex.name} sections</h2>
@@ -271,7 +292,9 @@
       <div class="card">
         ${sections.map(({ el, s }) => `<div class="topic-row">
             <div class="name"><b>${el.id}</b> ${esc(el.name)} <span class="tag">· ${weightLabel(el, ex)}</span>
-              <small>${TOPICS.filter(t => t[S.track] === el.id).map(t => `<a href="#/notes/${t.id}">${t.icon} ${esc(t.name)}</a>`).join(" · ")}</small>
+              <small>${(ts => ts.length > 4
+                ? `<a href="#/notes">${ts.length} lessons</a> · ${ts.filter(t => isStudied(t.id)).length} studied`
+                : ts.map(t => `<a href="#/notes/${t.id}">${t.icon} ${esc(t.name)}</a>`).join(" · "))(TOPICS.filter(t => t[S.track] === el.id))}</small>
               <small>${s.seen}/${s.total} attempted${s.seen ? " · " + s.acc + "% correct" : ""}</small>
               <div class="bar"><i class="${s.seen ? barClass(s.acc) : ""}" style="width:${s.seen ? s.acc : 0}%"></i></div>
             </div>
@@ -337,6 +360,19 @@
     return EX().elements.flatMap(el => TOPICS.filter(t => t[S.track] === el.id));
   }
 
+  // ---------- Lessons ----------
+  // CFA Level I has one lesson per learning module; "studied" marks track progress through them.
+  const isStudied = tid => (S.read[tid] || 0) > 0;
+  const words = html => String(html || "").replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
+  const readMins = tid => Math.max(1, Math.round(words(window.NOTES[tid]) / 200));
+  const manyLessons = () => !!EX().lessons;
+  const nextLesson = () => orderedTrackTopics().find(t => window.NOTES[t.id] && !isStudied(t.id));
+  function setStudied(tid, on) { S.read[tid] = on ? Date.now() : -Date.now(); save(); }
+  function lessonProgress() {
+    const ts = orderedTrackTopics();
+    return { done: ts.filter(t => isStudied(t.id)).length, total: ts.length, next: nextLesson() };
+  }
+
   views.notes = function (tid) {
     if (tid && TOPIC[tid]) {
       const t = TOPIC[tid];
@@ -347,39 +383,65 @@
       const where = Object.entries(window.EXAMS).filter(([id]) => t[id])
         .map(([id, e]) => `${e.name} ${t[id]}: ${esc(e.elements.find(x => x.id === t[id]).name)}`).join(" · ");
       const homeExams = Object.entries(window.EXAMS).filter(([id]) => t[id]).map(([, e]) => e.name).join(" and ");
+      const html = window.NOTES[tid] || "<p>No notes yet.</p>";
+      // Long lessons get a contents list built from their section headings.
+      const heads = (html.match(/<h3[^>]*>[\s\S]*?<\/h3>/g) || []).map(h => ({
+        hot: /class="hot"/.test(h),
+        text: h.replace(/<span class="hot">[\s\S]*?<\/span>/g, "").replace(/<[^>]+>/g, "").trim()
+      }));
+      const lesson = manyLessons() && t[S.track];
+      const done = isStudied(tid);
       $app.innerHTML = `
-        <a href="#/notes" class="muted">← All ${EX().name} topics</a>
+        <a href="#/notes" class="muted">← All ${EX().name} ${lesson ? "lessons" : "topics"}</a>
         <h1>${t.icon} ${esc(t.name)}</h1>
-        <p class="sub">${where}<br>${s.total} practice questions${s.seen ? " · " + s.acc + "% correct so far" : ""}</p>
+        <p class="sub">${where}<br>${s.total} practice questions${s.seen ? " · " + s.acc + "% correct so far" : ""} · about ${readMins(tid)} min read</p>
         ${t[S.track] ? "" : `<div class="trap" style="margin:0 0 12px">This topic is for the ${esc(homeExams)}, so it's not part of your ${EX().name} practice.</div>`}
-        <div class="card notes">${window.NOTES[tid] || "<p>No notes yet.</p>"}</div>
+        ${lesson ? `<div class="row" style="margin:0 0 12px"><button class="btn small ${done ? "studied" : ""}" id="studied">${done ? "✓ Studied" : "Mark as studied"}</button></div>` : ""}
+        ${heads.length >= 3 ? `<div class="card toc"><b>In this lesson</b><ol>${heads.map((h, i) => `<li><button class="linklike" data-h="${i}">${esc(h.text)}</button>${h.hot ? ` <span class="hot">Highly tested</span>` : ""}</li>`).join("")}</ol></div>` : ""}
+        <div class="card notes">${html}</div>
         <div class="row mt">
-          <button class="btn primary" id="practice-topic">Practice this topic</button>
+          <button class="btn primary" id="practice-topic">Practice this ${lesson ? "lesson" : "topic"} (${s.total})</button>
           <a class="btn" href="#/cards/${tid}">Flashcards</a>
+          ${lesson && !done ? `<button class="btn" id="studied-next">✓ Mark as studied${next ? " and go to next" : ""}</button>` : ""}
           <span class="spacer"></span>
           ${prev ? `<a class="btn small" href="#/notes/${prev.id}">← ${esc(prev.name)}</a>` : ""}
           ${next ? `<a class="btn small" href="#/notes/${next.id}">${esc(next.name)} →</a>` : ""}
         </div>`;
       document.getElementById("practice-topic").onclick = () =>
         startSession("practice", pickQuestions([tid], "weak", 999), { title: t.name });
+      const hs = $app.querySelectorAll(".notes h3");
+      $app.querySelectorAll("[data-h]").forEach(b => b.onclick = () => hs[+b.dataset.h] && hs[+b.dataset.h].scrollIntoView({ behavior: "smooth" }));
+      const st = document.getElementById("studied");
+      if (st) st.onclick = () => { setStudied(tid, !isStudied(tid)); const y = window.scrollY; views.notes(tid); window.scrollTo(0, y); };
+      const sn = document.getElementById("studied-next");
+      if (sn) sn.onclick = () => { setStudied(tid, true); if (next) location.hash = "#/notes/" + next.id; else views.notes(tid); };
       window.scrollTo(0, 0);
       return;
     }
     const ex = EX();
+    const many = manyLessons(), lp = lessonProgress();
     $app.innerHTML = `
       <h1>${ex.name} Study Notes</h1>
-      <p class="sub">Study notes for every topic on the ${ex.name}, with formulas, worked examples and common exam traps, grouped by exam section.</p>
-      ${ex.elements.map(el => `
-        <h2 style="margin-top:22px">${el.id} · ${esc(el.name)} <span class="tag">${weightLabel(el, ex)}</span></h2>
+      <p class="sub">${many
+        ? `One lesson for each learning module of the ${ex.name} curriculum, written so you can learn the material from scratch: explanations, formulas, worked examples, what's most tested and common traps. Study them in order, practice each lesson's questions, then mark it as studied.`
+        : `Study notes for every topic on the ${ex.name}, with formulas, worked examples and common exam traps, grouped by exam section.`}</p>
+      ${many ? `<div class="card row"><span><b>${lp.done} of ${lp.total}</b> lessons studied</span>
+        <div class="bar" style="flex:1;min-width:120px"><i class="good" style="width:${pct(lp.done, lp.total)}%"></i></div>
+        ${lp.next ? `<a class="btn primary small" href="#/notes/${lp.next.id}">${lp.done ? "Continue" : "Start"}: ${esc(lp.next.name)}</a>` : ""}</div>` : ""}
+      ${ex.elements.map(el => {
+        const ts = TOPICS.filter(t => t[S.track] === el.id);
+        return `
+        <h2 style="margin-top:22px">${el.id} · ${esc(el.name)} <span class="tag">${weightLabel(el, ex)}</span>${many && ts.length > 1 ? ` <span class="tag">· ${ts.filter(t => isStudied(t.id)).length}/${ts.length} studied</span>` : ""}</h2>
         <div class="grid grid-3">
-          ${TOPICS.filter(t => t[S.track] === el.id).map(t => {
+          ${ts.map((t, i) => {
             const st = topicStats(t.id);
-            return `<a class="card topic-tile" href="#/notes/${t.id}">
-              <div class="ic">${t.icon}</div><b>${esc(t.name)}</b>
-              <small>${st.total} questions${st.seen ? " · " + st.acc + "% correct" : ""}</small>
+            return `<a class="card topic-tile ${many && isStudied(t.id) ? "done" : ""}" href="#/notes/${t.id}">
+              <div class="ic">${many && isStudied(t.id) ? "✅" : t.icon}</div><b>${many && ts.length > 1 ? (i + 1) + ". " : ""}${esc(t.name)}</b>
+              <small>${st.total} questions${st.seen ? " · " + st.acc + "% correct" : ""}${many ? " · " + readMins(t.id) + " min read" : ""}</small>
             </a>`;
           }).join("")}
-        </div>`).join("")}`;
+        </div>`;
+      }).join("")}`;
   };
 
   views.practice = function () {
@@ -391,8 +453,12 @@
       <div class="card">
         <div class="row"><b>Topics</b><span class="spacer"></span>
           <button class="btn small" id="all">All</button><button class="btn small" id="none">None</button></div>
-        <div class="chips mt" id="topics">
-          ${tt.map(t => `<label class="chip on" data-t="${t.id}">${t.icon} ${esc(t.name)}</label>`).join("")}
+        <div class="mt" id="topics">
+          ${EX().elements.map(el => {
+            const ts = tt.filter(t => t[S.track] === el.id);
+            return ts.length ? `<div class="chip-group"><button class="grp" data-g="${el.id}" title="Select or clear all of ${esc(el.name)}">${el.id}</button>
+              ${ts.map(t => `<label class="chip on" data-t="${t.id}">${t.icon} ${esc(t.name)}</label>`).join("")}</div>` : "";
+          }).join("")}
         </div>
         <label class="field">Questions</label>
         <div class="chips" id="filter">
@@ -429,6 +495,12 @@
       const t = c.dataset.t;
       sel.has(t) ? sel.delete(t) : sel.add(t);
       c.classList.toggle("on", sel.has(t)); update();
+    });
+    topicsEl.querySelectorAll(".grp").forEach(g => g.onclick = () => {
+      const chips = [...g.parentElement.querySelectorAll(".chip")];
+      const on = !chips.every(c => sel.has(c.dataset.t));
+      chips.forEach(c => { c.classList.toggle("on", on); on ? sel.add(c.dataset.t) : sel.delete(c.dataset.t); });
+      update();
     });
     const setAll = on => {
       topicsEl.querySelectorAll(".chip").forEach(c => { c.classList.toggle("on", on); on ? sel.add(c.dataset.t) : sel.delete(c.dataset.t); });
@@ -683,7 +755,7 @@
       <div class="row">
         <select id="topic">
           <option value="">All ${EX().name} topics</option>
-          ${orderedTrackTopics().map(t => `<option value="${t.id}" ${t.id === topic ? "selected" : ""}>${t.icon} ${esc(t.name)}</option>`).join("")}
+          ${EX().elements.map(el => `<optgroup label="${el.id} · ${esc(el.name)}">${TOPICS.filter(t => t[S.track] === el.id).map(t => `<option value="${t.id}" ${t.id === topic ? "selected" : ""}>${t.icon} ${esc(t.name)}</option>`).join("")}</optgroup>`).join("")}
         </select>
         <label class="chip ${onlyLearning ? "on" : ""}" id="only">Only cards I'm still learning</label>
         <span class="spacer"></span>
@@ -775,7 +847,7 @@
   // Progress lives in this browser only, so a backup is how it moves between devices.
   const BACKUP_TAG = "CIROPREP1:";
   function backupData() {
-    return { v: 1, saved: Date.now(), q: S.q, exams: S.exams, cards: S.cards, dates: S.dates };
+    return { v: 1, saved: Date.now(), q: S.q, exams: S.exams, cards: S.cards, read: S.read, dates: S.dates };
   }
   function toCode(obj) {
     const json = JSON.stringify(obj);
@@ -811,9 +883,13 @@
     }
     S.exams.sort((a, b) => a.date - b.date);
     Object.assign(S.cards, d.cards || {});
+    // Studied lessons: the newer mark wins (positive time = studied, negative = unmarked).
+    let reads = 0;
+    for (const [k, v] of Object.entries(d.read || {})) if (Math.abs(v) > Math.abs(S.read[k] || 0)) { S.read[k] = v; reads++; }
     for (const [k, v] of Object.entries(d.dates || {})) if (v && !S.dates[k]) S.dates[k] = v;
+    migrateIds();
     save(quiet);
-    return { added, updated, exams };
+    return { added, updated, exams, reads };
   }
 
   // ----- Cloud sync -----
@@ -898,7 +974,7 @@
   function packProgress(d) {
     const q = {};
     for (const [id, r] of Object.entries(d.q || {})) q[id] = [r.a || 0, r.c || 0, r.last ? 1 : 0, r.ts || 0];
-    return { v: 2, saved: Date.now(), q, exams: d.exams || [], cards: d.cards || {}, dates: d.dates || {} };
+    return { v: 2, saved: Date.now(), q, exams: d.exams || [], cards: d.cards || {}, read: d.read || {}, dates: d.dates || {} };
   }
   function unpackProgress(d) {
     if (!d || d.v !== 2) return d;
@@ -947,7 +1023,7 @@
     if (v && typeof v === "object") return "{" + Object.keys(v).sort().map(k => JSON.stringify(k) + ":" + stable(v[k])).join(",") + "}";
     return JSON.stringify(v);
   }
-  const progressOf = d => stable({ q: d.q || {}, exams: d.exams || [], cards: d.cards || {}, dates: d.dates || {} });
+  const progressOf = d => stable({ q: d.q || {}, exams: d.exams || [], cards: d.cards || {}, read: d.read || {}, dates: d.dates || {} });
 
   function setSyncStatus(status, error) {
     syncState = { status, error: error || "" };
@@ -982,7 +1058,7 @@
         sync.sha = sha;
         if (data) {
           const r = mergeBackup(data, true);
-          if (r.added || r.updated || r.exams) gotNew = true;
+          if (r.added || r.updated || r.exams || r.reads) gotNew = true;
           if (progressOf(data) === progressOf(backupData())) break; // already identical
         }
         if (await writeRemote(backupData(), sha) === "ok") break;
