@@ -385,7 +385,10 @@
       const homeExams = Object.entries(window.EXAMS).filter(([id]) => t[id]).map(([, e]) => e.name).join(" and ");
       const html = window.NOTES[tid] || "<p>No notes yet.</p>";
       // Long lessons get a contents list built from their section headings.
-      const heads = (html.match(/<h3[^>]*>[\s\S]*?<\/h3>/g) || []).map(h => h.replace(/<[^>]+>/g, "").trim());
+      const heads = (html.match(/<h3[^>]*>[\s\S]*?<\/h3>/g) || []).map(h => ({
+        hot: /class="hot"/.test(h),
+        text: h.replace(/<span class="hot">[\s\S]*?<\/span>/g, "").replace(/<[^>]+>/g, "").trim()
+      }));
       const lesson = manyLessons() && t[S.track];
       const done = isStudied(tid);
       $app.innerHTML = `
@@ -394,7 +397,7 @@
         <p class="sub">${where}<br>${s.total} practice questions${s.seen ? " · " + s.acc + "% correct so far" : ""} · about ${readMins(tid)} min read</p>
         ${t[S.track] ? "" : `<div class="trap" style="margin:0 0 12px">This topic is for the ${esc(homeExams)}, so it's not part of your ${EX().name} practice.</div>`}
         ${lesson ? `<div class="row" style="margin:0 0 12px"><button class="btn small ${done ? "studied" : ""}" id="studied">${done ? "✓ Studied" : "Mark as studied"}</button></div>` : ""}
-        ${heads.length >= 3 ? `<div class="card toc"><b>In this lesson</b><ol>${heads.map((h, i) => `<li><button class="linklike" data-h="${i}">${esc(h)}</button></li>`).join("")}</ol></div>` : ""}
+        ${heads.length >= 3 ? `<div class="card toc"><b>In this lesson</b><ol>${heads.map((h, i) => `<li><button class="linklike" data-h="${i}">${esc(h.text)}</button>${h.hot ? ` <span class="hot">Highly tested</span>` : ""}</li>`).join("")}</ol></div>` : ""}
         <div class="card notes">${html}</div>
         <div class="row mt">
           <button class="btn primary" id="practice-topic">Practice this ${lesson ? "lesson" : "topic"} (${s.total})</button>

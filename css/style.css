@@ -300,7 +300,8 @@ footer { text-align: center; color: var(--muted); font-size: 13px; padding: 20px
 
 /* CFA Level I lessons: contents list, studied marks, highly tested flags */
 .toc { margin-bottom: 14px; }
-.toc ol { margin: 8px 0 0; padding-left: 22px; columns: 2 260px; column-gap: 24px; }
+.toc ol { margin: 8px 0 0; padding-left: 0; list-style: none; columns: 2 260px; column-gap: 24px; }
+.toc .hot { margin-left: 4px; font-size: 10.5px; padding: 1px 6px; }
 .toc li { margin: 3px 0; break-inside: avoid; }
 .linklike { background: none; border: 0; padding: 0; color: var(--primary); font: inherit; cursor: pointer; text-align: left; }
 .linklike:hover { text-decoration: underline; }
