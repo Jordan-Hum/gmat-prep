@@ -141,7 +141,7 @@ window.QB_HARD.l1std12 = [
     ["Doesn't violate Standard II(B)", "Is transaction-based market manipulation", "Violates Standard VI(B) Priority of Transactions"],
     "Legitimate trading strategies that aren't intended to mislead market participants are not manipulation.", "s"],
   ["A member lives in Country A, which has no securities laws, and does business in Country B, whose laws are stricter than the Code and apply to her work. She must follow:",
-    ["Country B's laws, as they're stricter", "Only the CFA Code and Standards", "Nothing beyond Country A's laws"],
+    ["Country B's laws, as they're stricter", "Only the CFA Code and its Standards", "Nothing beyond Country A's laws"],
     "She must follow the strictest of the applicable laws and the Code; here Country B's law is stricter than the Code.", "s"],
   ["A member learns a colleague is breaking securities laws. Under Standard I(A), the member is:",
     ["Not required to report it to regulators", "Required to report it to regulators", "Required to resign from the firm at once"],
