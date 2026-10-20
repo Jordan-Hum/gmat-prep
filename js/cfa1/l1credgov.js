@@ -78,7 +78,7 @@ window.QB_HARD.l1credgov = [
     ["A strength, giving it more flexibility", "A weakness, adding to its currency risk", "Irrelevant to its credit quality"],
     "Reserve-currency status lets a government borrow more cheaply and with more flexibility.", "r"],
   ["Which ratio most directly measures a sovereign's ability to meet short-term foreign currency obligations?",
-    ["FX reserves to short-term external debt", "Government debt to nominal GDP", "Interest expense to tax revenue"],
+    ["Reserves to short-term foreign debt", "Government debt to nominal GDP", "Interest expense to tax revenue"],
     "Reserves relative to external debt due soon measure external liquidity.", "r"],
   ["Compared with a national government, a city's ability to service its general obligation debt is more limited mainly because the city:",
     ["Can't create money", "Can't raise taxes at all", "Can't issue revenue bonds"],
