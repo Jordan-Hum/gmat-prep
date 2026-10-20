@@ -20,7 +20,17 @@ window.TOPICS = [
   { id: "ethics",     name: "Conflicts of Interest & Ethics",     icon: "⚖️", cire: "E9", rse: "R1" },
 
   // CFA Program Level I, in the curriculum's topic order
-  { id: "l1qm",  name: "Quantitative Methods",               icon: "🧮", cfa1: "QM" },
+  // One lesson per learning module; legacy = the single topic it replaced (keeps saved answers)
+  { id: "l1rates", name: "Rates and Returns",                           icon: "📈", cfa1: "QM", legacy: "l1qm" },
+  { id: "l1tvm",   name: "Time Value of Money in Finance",              icon: "⏳", cfa1: "QM", legacy: "l1qm" },
+  { id: "l1stats", name: "Statistical Measures of Asset Returns",       icon: "📊", cfa1: "QM", legacy: "l1qm" },
+  { id: "l1prob",  name: "Probability Trees and Conditional Expectations", icon: "🌳", cfa1: "QM", legacy: "l1qm" },
+  { id: "l1portm", name: "Portfolio Mathematics",                       icon: "🧮", cfa1: "QM", legacy: "l1qm" },
+  { id: "l1sim",   name: "Simulation Methods",                          icon: "🎲", cfa1: "QM", legacy: "l1qm" },
+  { id: "l1est",   name: "Estimation and Inference",                    icon: "🎯", cfa1: "QM", legacy: "l1qm" },
+  { id: "l1hyp",   name: "Hypothesis Testing and Tests of Independence", icon: "🔬", cfa1: "QM", legacy: "l1qm" },
+  { id: "l1reg",   name: "Simple Linear Regression",                    icon: "📉", cfa1: "QM", legacy: "l1qm" },
+  { id: "l1bigd",  name: "Introduction to Big Data Techniques",         icon: "🤖", cfa1: "QM", legacy: "l1qm" },
   { id: "l1eco", name: "Economics",                          icon: "🌐", cfa1: "ECO" },
   { id: "l1ci",  name: "Corporate Issuers",                  icon: "🏢", cfa1: "CI" },
   { id: "l1fsa", name: "Financial Statement Analysis",       icon: "🧾", cfa1: "FSA" },
@@ -95,12 +105,13 @@ window.EXAMS = {
     name: "CFA L1",
     full: "CFA Program Level I",
     questions: 180, minutes: 270,
-    blurb: "A recap of the Level I curriculum: tools, concepts and the Code and Standards that Levels II and III build on.",
+    blurb: "The Level I curriculum taught from scratch, one lesson per learning module: tools, concepts and the Code and Standards that Levels II and III build on.",
     body: "CFA Institute", pair: "cfa2", pairTitle: "CFA Level II",
     pairNote: "Switch to <b>CFA L2</b> at the top for Level II: valuation in depth, with item-set (vignette) questions like the real exam.",
     format: "180 standalone questions with three options (A, B, C), in two 2 h 15 min sessions",
     bankNote: "Written in the Level I format: standalone questions with three options, a mix of concepts, calculations and short scenarios (\"most likely\", \"least appropriate\"). Answer explanations show the working.",
     source: "Topic weights and exam format follow CFA Institute's published Level I outline for the 2025–2026 curriculum. CFA Institute updates the curriculum each year, so check the current Learning Outcome Statements on cfainstitute.org. Questions and notes are original study material, not CFA Institute content.",
+    lessons: true, // one lesson (topic) per learning module, with "studied" tracking
     target: 0.7, targetNote: "CFA Institute doesn't publish the minimum passing score; 70% is a common benchmark",
     mocks: [[180, "Full Level I exam (4 h 30 min)"], [90, "One session (2 h 15 min)"], [30, "Quick 30"]],
     searchHint: "'duration', 'WACC', 'GIPS'",

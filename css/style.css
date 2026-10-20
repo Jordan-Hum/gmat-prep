@@ -297,3 +297,22 @@ footer { text-align: center; color: var(--muted); font-size: 13px; padding: 20px
 .vignette table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13.5px; display: block; overflow-x: auto; }
 .vignette th, .vignette td { border: 1px solid var(--border); padding: 5px 7px; text-align: left; }
 .vignette th { background: var(--surface); }
+
+/* CFA Level I lessons: contents list, studied marks, highly tested flags */
+.toc { margin-bottom: 14px; }
+.toc ol { margin: 8px 0 0; padding-left: 22px; columns: 2 260px; column-gap: 24px; }
+.toc li { margin: 3px 0; break-inside: avoid; }
+.linklike { background: none; border: 0; padding: 0; color: var(--primary); font: inherit; cursor: pointer; text-align: left; }
+.linklike:hover { text-decoration: underline; }
+.btn.studied { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.topic-tile.done { border-color: var(--good); }
+.hot {
+  display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 2px 8px; margin-left: 6px; vertical-align: 2px;
+}
+.chip-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 10px; }
+.chip-group .grp {
+  font: inherit; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; cursor: pointer; min-width: 44px;
+}
+.notes .calc { border-left: 3px solid var(--primary); background: var(--primary-soft); padding: 10px 14px; border-radius: 6px; margin: 10px 0; font-size: 14.5px; }
