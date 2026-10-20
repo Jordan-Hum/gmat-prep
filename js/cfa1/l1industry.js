@@ -1,8 +1,8 @@
-// CFA Level I · Equity Investments · Learning module 5: Industry and Competitive Analysis.
+// CFA Level I · Equity Investments · Learning module 6: Industry and Competitive Analysis.
 window.NOTES = window.NOTES || {}; window.QB_HARD = window.QB_HARD || {}; window.GLOSSARY = window.GLOSSARY || [];
 
 window.NOTES.l1industry = `
-<p class="syl">CFA Level I · Equity Investments · Learning module 5 of 8 · Industry and Competitive Analysis</p>
+<p class="syl">CFA Level I · Equity Investments · Learning module 6 of 8 · Industry and Competitive Analysis</p>
 <p>A company's profits depend heavily on the industry it's in. This lesson covers how industries are classified and how peer groups are built, how to measure industry concentration, the industry life cycle, the external forces (PESTLE) and competitive forces (Porter) that shape profitability, and the strategies companies use to compete.</p>
 
 <h3>1. Classifying industries and building peer groups</h3>

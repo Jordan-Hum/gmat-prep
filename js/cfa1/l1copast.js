@@ -1,8 +1,8 @@
-// CFA Level I · Equity Investments · Learning module 6: Company Analysis: Past and Present.
+// CFA Level I · Equity Investments · Learning module 5: Company Analysis: Past and Present.
 window.NOTES = window.NOTES || {}; window.QB_HARD = window.QB_HARD || {}; window.GLOSSARY = window.GLOSSARY || [];
 
 window.NOTES.l1copast = `
-<p class="syl">CFA Level I · Equity Investments · Learning module 6 of 8 · Company Analysis: Past and Present</p>
+<p class="syl">CFA Level I · Equity Investments · Learning module 5 of 8 · Company Analysis: Past and Present</p>
 <p>Before forecasting a company, an analyst needs to understand how it makes money today. This lesson sets out what goes into a company research report, how to describe a business model, how to break revenue into drivers, and how to analyze costs, operating leverage, working capital, capital investment and capital structure. The ratios here are the inputs to the forecasting and valuation lessons that follow.</p>
 
 <h3>1. The company research report</h3>
