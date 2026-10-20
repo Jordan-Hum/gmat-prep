@@ -102,7 +102,12 @@ window.TOPICS = [
   { id: "l1natres",    name: "Natural Resources",                                       icon: "🌾", cfa1: "ALT", legacy: "l1alt" },
   { id: "l1hf",        name: "Hedge Funds",                                             icon: "🎛️", cfa1: "ALT", legacy: "l1alt" },
   { id: "l1digital",   name: "Introduction to Digital Assets",                          icon: "🪙", cfa1: "ALT", legacy: "l1alt" },
-  { id: "l1pm",  name: "Portfolio Management",               icon: "🧺", cfa1: "PM" },
+  { id: "l1prr1",      name: "Portfolio Risk and Return: Part I",                       icon: "🎲", cfa1: "PM", legacy: "l1pm" },
+  { id: "l1prr2",      name: "Portfolio Risk and Return: Part II",                      icon: "📏", cfa1: "PM", legacy: "l1pm" },
+  { id: "l1pmover",    name: "Portfolio Management: An Overview",                       icon: "🧭", cfa1: "PM", legacy: "l1pm" },
+  { id: "l1ips",       name: "Basics of Portfolio Planning and Construction",           icon: "📋", cfa1: "PM", legacy: "l1pm" },
+  { id: "l1behav",     name: "The Behavioral Biases of Individuals",                    icon: "🧠", cfa1: "PM", legacy: "l1pm" },
+  { id: "l1riskmgmt",  name: "Introduction to Risk Management",                         icon: "🧯", cfa1: "PM", legacy: "l1pm" },
   { id: "l1eth", name: "Ethical and Professional Standards", icon: "⚖️", cfa1: "ETH" },
 
   // CFA Program Level II
