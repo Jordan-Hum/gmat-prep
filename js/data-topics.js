@@ -108,7 +108,11 @@ window.TOPICS = [
   { id: "l1ips",       name: "Basics of Portfolio Planning and Construction",           icon: "📋", cfa1: "PM", legacy: "l1pm" },
   { id: "l1behav",     name: "The Behavioral Biases of Individuals",                    icon: "🧠", cfa1: "PM", legacy: "l1pm" },
   { id: "l1riskmgmt",  name: "Introduction to Risk Management",                         icon: "🧯", cfa1: "PM", legacy: "l1pm" },
-  { id: "l1eth", name: "Ethical and Professional Standards", icon: "⚖️", cfa1: "ETH" },
+  { id: "l1ethtrust",  name: "Ethics, Trust and the Code of Ethics",                    icon: "⚖️", cfa1: "ETH", legacy: "l1eth" },
+  { id: "l1std12",     name: "Standards I–II: Professionalism and Market Integrity",    icon: "🎓", cfa1: "ETH", legacy: "l1eth" },
+  { id: "l1std3",      name: "Standard III: Duties to Clients",                         icon: "🤝", cfa1: "ETH", legacy: "l1eth" },
+  { id: "l1std47",     name: "Standards IV–VII: Employers, Analysis, Conflicts, CFA Program", icon: "📜", cfa1: "ETH", legacy: "l1eth" },
+  { id: "l1gips",      name: "Introduction to GIPS",                                    icon: "📏", cfa1: "ETH", legacy: "l1eth" },
 
   // CFA Program Level II
   { id: "l2qm",  name: "Quantitative Methods",               icon: "🧮", cfa2: "QM" },
