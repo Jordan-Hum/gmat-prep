@@ -108,7 +108,7 @@ window.QB_HARD.l1index = [
     ["Reduce that stock's weight", "Increase that stock's index weight", "Leave all weights unchanged"],
     "Weights depend on price; halving the price halves the stock's weight (the divisor keeps the index level unchanged).", "r"],
   ["A float-adjusted market-capitalization-weighted index weights each stock by:",
-    ["Market value of its publicly available shares", "Its total number of shares outstanding", "Its share price alone"],
+    ["Market value of its publicly available shares", "Its total shares outstanding, insiders included", "Its share price alone"],
     "Float adjustment excludes shares held by insiders, governments and other strategic holders not available for trading.", "r"],
   ["A market-cap-weighted index will most likely overweight:",
     ["Stocks that may be overvalued", "Small, illiquid companies", "Stocks with high book-to-market ratios"],
