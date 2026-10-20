@@ -92,6 +92,7 @@ window.QB_HARD.l1curverisk = [
 ];
 
 window.GLOSSARY.push(
+  ["Effective duration","(PV− − PV+) ÷ (2 × ΔCurve × PV0). Used for bonds with embedded options; callable bonds show negative convexity at low yields.","l1curverisk"],
   ["Effective convexity", "(PV− + PV+ − 2PV0) / (Δcurve² × PV0); negative for callable bonds at low yields.", "l1curverisk"],
   ["Key rate duration", "Sensitivity to a change in one maturity on the benchmark curve; they sum to effective duration.", "l1curverisk"],
   ["Empirical duration", "Duration estimated from historical data; lower than analytical for high-yield bonds.", "l1curverisk"]
