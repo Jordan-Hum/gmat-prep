@@ -124,7 +124,40 @@ window.TOPICS = [
   { id: "l2der", name: "Derivatives",                        icon: "🔀", cfa2: "DER" },
   { id: "l2alt", name: "Alternative Investments",            icon: "🏗️", cfa2: "ALT" },
   { id: "l2pm",  name: "Portfolio Management",               icon: "🧺", cfa2: "PM" },
-  { id: "l2eth", name: "Ethical and Professional Standards", icon: "⚖️", cfa2: "ETH" }
+  { id: "l2eth", name: "Ethical and Professional Standards", icon: "⚖️", cfa2: "ETH" },
+  // LLQP (harmonized, common law): one lesson per chapter of the four module manuals
+  { id: "lqintro",      name: "Introduction to Life Insurance",                                      icon: "🛡️", llqp: "LIFE" },
+  { id: "lqterm",       name: "Term Life Insurance",                                                 icon: "⏳", llqp: "LIFE" },
+  { id: "lqwhole",      name: "Whole Life and Term-100 Insurance",                                   icon: "🏛️", llqp: "LIFE" },
+  { id: "lqul",         name: "Universal Life Insurance",                                            icon: "🔄", llqp: "LIFE" },
+  { id: "lqriders",     name: "Riders and Supplementary Benefits",                                   icon: "➕", llqp: "LIFE" },
+  { id: "lqgroup",      name: "Group Life Insurance",                                                icon: "👥", llqp: "LIFE" },
+  { id: "lqtax",        name: "Taxation of Life Insurance",                                          icon: "🧾", llqp: "LIFE" },
+  { id: "lqbiz",        name: "Business Uses of Life Insurance",                                     icon: "🏢", llqp: "LIFE" },
+  { id: "lqunder",      name: "Application and Underwriting",                                        icon: "📝", llqp: "LIFE" },
+  { id: "lqneeds",      name: "Assessing the Client's Situation",                                    icon: "🔍", llqp: "LIFE" },
+  { id: "lqrec",        name: "Recommending an Insurance Policy",                                    icon: "✅", llqp: "LIFE" },
+  { id: "lqcontract",   name: "Policy Contract, Delivery and Ongoing Service",                       icon: "📜", llqp: "LIFE" },
+  { id: "lqasprot",     name: "Financial Protection from Accident and Sickness Insurance",           icon: "🩺", llqp: "AS" },
+  { id: "lqdi",         name: "Insurance to Protect Income: Disability",                             icon: "💼", llqp: "AS" },
+  { id: "lqciltc",      name: "Insurance to Protect Assets: Critical Illness and Long-Term Care",    icon: "❤️", llqp: "AS" },
+  { id: "lqhealth",     name: "Insurance to Protect Savings: Health, Dental and Travel",             icon: "💊", llqp: "AS" },
+  { id: "lqasbiz",      name: "Business Protection: Overhead, Buy-Out and Key Person",               icon: "🏭", llqp: "AS" },
+  { id: "lqasprofile",  name: "The Client Profile and Needs Analysis",                               icon: "📋", llqp: "AS" },
+  { id: "lqascontract", name: "Recommendations, Underwriting, Contracts and Claims",                 icon: "📑", llqp: "AS" },
+  { id: "lqasgroup",    name: "Group Accident and Sickness Plans",                                   icon: "👨‍👩‍👧", llqp: "AS" },
+  { id: "lqinvest",     name: "Investment and Savings",                                              icon: "💹", llqp: "SEG" },
+  { id: "lqseg",        name: "Segregated Funds",                                                    icon: "🧱", llqp: "SEG" },
+  { id: "lqann",        name: "Annuities",                                                           icon: "💵", llqp: "SEG" },
+  { id: "lqprofile",    name: "The Investor Profile, Pensions and Registered Plans",                 icon: "🧑‍💼", llqp: "SEG" },
+  { id: "lqsegrec",     name: "Recommending Segregated Funds and Annuities",                         icon: "🎯", llqp: "SEG" },
+  { id: "lqsegcontract", name: "Segregated Fund Contracts",                                           icon: "📃", llqp: "SEG" },
+  { id: "lqanncontract", name: "Annuity Contracts",                                                   icon: "🗂️", llqp: "SEG" },
+  { id: "lqgrouppen",   name: "Group Retirement and Investment Plans",                               icon: "🏦", llqp: "SEG" },
+  { id: "lqlaw",        name: "Legal Foundations of Insurance",                                      icon: "⚖️", llqp: "ETH" },
+  { id: "lqethics",     name: "Ethics, Duties and Fair Treatment of Clients",                        icon: "🤝", llqp: "ETH" },
+  { id: "lqreg",        name: "Regulation, Licensing and Consumer Protection",                       icon: "🏛️", llqp: "ETH" },
+  { id: "lqcompliance", name: "Privacy, Anti-Money Laundering and Professional Liability",           icon: "🔒", llqp: "ETH" }
 ];
 
 // Element weightings, as published for each exam (question counts scaled to the exam length).
@@ -199,6 +232,28 @@ window.EXAMS = {
       { id: "ALT", name: "Alternative Investments",            n: 15, w: "7–10%" },
       { id: "PM",  name: "Portfolio Management",               n: 18, w: "8–12%" },
       { id: "ETH", name: "Ethical and Professional Standards", n: 31, w: "15–20%" }
+    ]
+  },
+  llqp: {
+    name: "LLQP",
+    full: "Life Licence Qualification Program",
+    questions: 130, minutes: 300,
+    heroNote: "4 separate module exams on the real thing (35, 35, 35 and 25 questions, 75 minutes each)",
+    blurb: "The course and exams for a life and accident & sickness insurance licence in every province and territory except Quebec (the harmonized, common law LLQP), taught from scratch with one lesson per chapter of the four module manuals.",
+    body: "the provincial insurance regulators",
+    format: "each module is its own exam, with four-option questions, many built around a short client case",
+    bankNote: "Written in the LLQP exam style: four-option questions, many built around a short client case, plus calculations (insurance needs, taxation, annuities and guarantees). Explanations give the reasoning.",
+    source: "Exam format (four modules; 35 questions for Life, Accident and Sickness, and Segregated Funds and Annuities, 25 for Ethics, each including 5 unscored pilot questions; 75 minutes per module; 60% to pass each module separately) follows the provincial regulators' published LLQP information as of 2026. Content follows the harmonized LLQP curriculum taught by accredited providers such as Business Career College and SeeWhy Learning. Notes and questions are original study material, not taken from any course. Dollar limits, tax rules and regulator requirements change, so confirm figures in your course manual and on your provincial regulator's site.",
+    lessons: true,
+    target: 0.6, targetNote: "you need 60% on each module",
+    mockNote: "On the real thing each LLQP module is a separate exam, so each mock below covers one module, with the real module's number of questions and 75 minutes.",
+    mocks: [[35, "Life Insurance module", "LIFE", 75], [35, "Accident & Sickness module", "AS", 75], [35, "Segregated Funds & Annuities module", "SEG", 75], [25, "Ethics & Professional Practice module", "ETH", 75], [20, "Quick 20 (all modules)"]],
+    searchHint: "'contestability', 'elimination period', 'maturity guarantee'",
+    elements: [
+      { id: "LIFE", name: "Life Insurance",                                 n: 35, label: "its own 35-question exam (75 min)" },
+      { id: "AS",   name: "Accident and Sickness Insurance",                n: 35, label: "its own 35-question exam (75 min)" },
+      { id: "SEG",  name: "Segregated Funds and Annuities",                 n: 35, label: "its own 35-question exam (75 min)" },
+      { id: "ETH",  name: "Ethics and Professional Practice (Common Law)",  n: 25, label: "its own 25-question exam (75 min)" }
     ]
   },
   cfa2: {
