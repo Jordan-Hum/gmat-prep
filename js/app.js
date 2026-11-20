@@ -35,7 +35,7 @@
     }
   }
   const QMAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
-  const DEFAULT_DATES = { cire: "2026-10-08", rse: "", cfa1: "", cfa2: "" };
+  const DEFAULT_DATES = { cire: "2026-10-08", rse: "", cfa1: "", cfa2: "", llqp: "" };
   const PASS_MARK = 0.6;
   const SECONDS_PER_EXAM_Q = 90;
 
@@ -100,15 +100,16 @@
     return a;
   }
   function barClass(p) { return p >= 75 ? "good" : p >= 60 ? "warn" : "bad"; }
-  // ---------- Exam track (CIRE, RSE, CFA Level I or CFA Level II) ----------
+  // ---------- Exam track (CIRE, RSE, CFA Level I, CFA Level II or LLQP) ----------
   const EX = () => window.EXAMS[S.track];
   const trackTopics = () => TOPICS.filter(t => t[S.track]);
   const trackTopicIds = () => trackTopics().map(t => t.id);
-  // Each exam is paired with its sibling (CIRE ↔ RSE, CFA Level I ↔ Level II).
+  // Each exam is paired with its sibling (CIRE ↔ RSE, CFA Level I ↔ Level II); the LLQP stands alone.
   const otherTrack = () => EX().pair;
   const hrs = m => (m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} hours`);
-  // How much of the exam a section is: CFA publishes weight ranges, CIRO publishes question counts.
-  const weightLabel = (el, ex) => (el.w ? `${el.w} of the exam` : `${el.n} of ${ex.questions} exam questions`);
+  // How much of the exam a section is: CFA publishes weight ranges, CIRO publishes question counts,
+  // and each LLQP module is its own exam (el.label).
+  const weightLabel = (el, ex) => (el.label || (el.w ? `${el.w} of the exam` : `${el.n} of ${ex.questions} exam questions`));
 
   function daysLeft() {
     if (!S.dates[S.track]) return null;
@@ -202,6 +203,11 @@
     raw.map((r, i) => [r - counts[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { counts[i]++; left--; } });
     return counts;
   }
+  // One LLQP module is its own exam: draw only from that module, unseen first, then missed.
+  function moduleExamQuestions(exam, elId, n) {
+    const fresh = q => { const r = S.q[q.id]; return !r ? 0 : r.last ? 2 : 1; };
+    return shuffle(elementPool(exam, elId)).sort((a, b) => fresh(a) - fresh(b)).slice(0, n).map(q => q.id);
+  }
   function weightedExamQuestions(exam, n) {
     const cfg = window.EXAMS[exam];
     // Draw in units: single questions, or whole four-question item sets on CFA Level II.
@@ -259,7 +265,7 @@
         <div>
           <h1>${ex.name} Prep</h1>
           <p>${esc(ex.full)}${S.dates[S.track] ? " · " + new Date(S.dates[S.track] + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) : ""}</p>
-          <p style="margin-top:6px;opacity:.85">${all.total} practice questions · ${ex.elements.length} exam sections · ${ex.questions} questions in ${hrs(ex.minutes)} on the real exam</p>
+          <p style="margin-top:6px;opacity:.85">${all.total} practice questions · ${ex.elements.length} exam sections · ${ex.heroNote || `${ex.questions} questions in ${hrs(ex.minutes)} on the real exam`}</p>
         </div>
         <div class="countdown">${countdownText}</div>
       </div>
@@ -302,13 +308,13 @@
           </div>`).join("")}
       </div>
 
-      <div class="card mt">
+      ${other ? `<div class="card mt">
         <b>📌 ${esc(ex.pairTitle)}</b>
         <p style="margin:6px 0 10px">${S.track === "cire"
           ? `When the CIRE is done, switch to <b>RSE</b> at the top of the page. It has its own sections, notes and mock exams. Everything you practice for the CIRE also counts toward the RSE (${shared} of its ${QUESTIONS.filter(q => TOPIC[q.topic].rse).length} questions), so you won't start from zero.`
           : ex.pairNote}</p>
         <button class="btn small" id="switch-other">Switch to ${other.name}</button>
-      </div>
+      </div>` : ""}
 
       <h2>Settings</h2>
       <div class="card">
@@ -328,7 +334,7 @@
     document.getElementById("go-missed").onclick = () =>
       startSession("practice", pickQuestions(trackTopicIds(), "missed", 999), { title: `${ex.name} review missed` });
     $app.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => practiceSection(S.track, b.dataset.sec));
-    document.getElementById("switch-other").onclick = () => setTrack(otherTrack());
+    if (other) document.getElementById("switch-other").onclick = () => setTrack(otherTrack());
     document.getElementById("exam-date").onchange = e => { S.dates[S.track] = e.target.value; save(); render(); };
     document.getElementById("reset").onclick = () => {
       if (confirm("Erase all answers, mock exam history and flashcard progress (for every exam: CIRE, RSE and CFA)?")) {
@@ -525,27 +531,38 @@
     const perQ = ex.minutes * 60 / ex.questions;
     const sizes = ex.mocks || [[ex.questions, `Full ${ex.name} exam`], [Math.round(ex.questions / 2), "Half exam"], [25, "Quick 25"]];
     const target = ex.target || PASS_MARK;
+    // A mock tied to one section ([n, label, element, minutes]) is timed like that module's own exam.
+    const secsFor = (n, el, mins) => (el ? mins * 60 : n * perQ);
+    const poolOf = el => (el ? elementPool(S.track, el).length : Infinity);
     $app.innerHTML = `
       <h1>${ex.name} Mock Exam</h1>
-      <p class="sub">Timed, with no feedback until you submit, like the real thing. Every mock draws questions from each ${ex.name} section in the same proportions as the real exam, with the same time per question (${Math.round(perQ)} seconds)${ex.sets ? ", in whole item sets" : ""}. ${target * 100}% is shown as the target line${ex.targetNote ? ` (${ex.targetNote})` : ""}. Questions you haven't seen come up first.</p>
+      <p class="sub">Timed, with no feedback until you submit, like the real thing. ${ex.mockNote || `Every mock draws questions from each ${ex.name} section in the same proportions as the real exam, with the same time per question (${Math.round(perQ)} seconds)${ex.sets ? ", in whole item sets" : ""}.`} ${target * 100}% is shown as the target line${ex.targetNote ? ` (${ex.targetNote})` : ""}. Questions you haven't seen come up first.</p>
       <div class="grid grid-3">
-        ${sizes.map(([n, lbl], i) => `
+        ${sizes.map(([n, lbl, el, mins], i) => {
+          const have = poolOf(el), short = have < n;
+          return `
           <div class="card">
             <b>${lbl}</b>
-            <p class="muted" style="margin:4px 0 12px">${n} questions · ${fmtTime(n * perQ)}</p>
-            <button class="btn ${i ? "primary" : "accent"}" data-n="${n}">Start</button>
-          </div>`).join("")}
+            <p class="muted" style="margin:4px 0 12px">${n} questions · ${fmtTime(secsFor(n, el, mins))}${el && short ? ` · ${have ? `${have} written so far` : "questions coming soon"}` : ""}</p>
+            <button class="btn ${i ? "primary" : "accent"}" data-i="${i}" ${el && !have ? "disabled" : ""}>Start</button>
+          </div>`;
+        }).join("")}
       </div>
       <h2>${ex.name} history</h2>
       <div class="card">
         ${hist.length ? hist.map(e => {
           const p = pct(e.score, e.total);
-          return `<div class="topic-row"><div class="name">${p}% <small>${e.score}/${e.total} · ${new Date(e.date).toLocaleString()} · ${fmtTime(e.secs)}</small>
+          return `<div class="topic-row"><div class="name">${p}% <small>${e.title ? esc(e.title) + " · " : ""}${e.score}/${e.total} · ${new Date(e.date).toLocaleString()} · ${fmtTime(e.secs)}</small>
             <div class="bar"><i class="${barClass(p)}" style="width:${p}%"></i></div></div></div>`;
         }).join("") : `<div class="empty">No ${ex.name} mock exams yet.</div>`}
       </div>`;
-    $app.querySelectorAll("[data-n]").forEach(b => b.onclick = () => {
-      const n = +b.dataset.n;
+    $app.querySelectorAll("[data-i]").forEach(b => b.onclick = () => {
+      const [n, lbl, el, mins] = sizes[+b.dataset.i];
+      if (el) {
+        const ids = moduleExamQuestions(S.track, el, n);
+        startSession("exam", ids, { title: `${ex.name} ${lbl}`, seconds: Math.round(secsFor(ids.length, el, mins) * ids.length / n) });
+        return;
+      }
       startSession("exam", weightedExamQuestions(S.track, n),
         { title: n === ex.questions ? `${ex.name} Mock Exam` : `${ex.name} Mock (${n})`, seconds: Math.round(n * perQ) });
     });
@@ -668,7 +685,7 @@
     if (ss.mode === "exam") {
       ss.items.forEach(it => record(it.id, it.chosen === 0));
       const score = ss.items.filter(it => it.chosen === 0).length;
-      S.exams.push({ date: Date.now(), score, total: ss.items.length, secs: ss.secs, track: ss.track || "cire" });
+      S.exams.push({ date: Date.now(), score, total: ss.items.length, secs: ss.secs, track: ss.track || "cire", title: ss.title });
     }
     save();
     location.hash = "#/results";
@@ -810,16 +827,17 @@
       const topics = TOPICS.filter(t => t[id] === el.id);
       return `<tr>
         <td><b>${el.id}</b> ${esc(el.name)}<br><span class="tag">${topics.map(t => t.icon + " " + esc(t.name)).join(" · ")}</span></td>
-        <td>${el.w ? `${el.w} <span class="tag">(~${el.n} questions)</span>` : `${el.n} <span class="tag">(${pct(el.n, e.questions)}%)</span>`}</td>
+        <td>${el.label ? esc(el.label) : el.w ? `${el.w} <span class="tag">(~${el.n} questions)</span>` : `${el.n} <span class="tag">(${pct(el.n, e.questions)}%)</span>`}</td>
         <td>${st.total}</td>
         <td>${st.seen ? `${st.acc}%<div class="bar"><i class="${barClass(st.acc)}" style="width:${st.acc}%"></i></div>` : `<span class="muted">—</span>`}</td>
         <td><button class="btn small" data-el="${el.id}">Practice</button></td>
       </tr>`;
     }).join("");
-    const notFocus = TOPICS.filter(t => !t[id]);
+    // Topics of the paired exam that this one doesn't test (e.g. RSE-only topics on the CIRE guide).
+    const notFocus = other ? TOPICS.filter(t => !t[id] && t[e.pair]) : [];
     $app.innerHTML = `
       <h1>${e.name} Guide</h1>
-      <p class="sub"><b>${esc(e.full)}.</b> ${esc(e.blurb)} ${e.questions} multiple-choice questions in ${hrs(e.minutes)}: ${esc(e.format)}.</p>
+      <p class="sub"><b>${esc(e.full)}.</b> ${esc(e.blurb)} ${e.heroNote ? esc(e.heroNote) : `${e.questions} multiple-choice questions in ${hrs(e.minutes)}`}: ${esc(e.format)}.</p>
       <div class="card">
         <b>${e.name} question bank: ${pool.length} questions</b>
         <p style="margin:6px 0 0">🧑‍💼 <b>${kinds.s}</b> scenarios (apply the rules to a situation, like the real exam) ·
@@ -833,14 +851,14 @@
         ${rows}
       </table></div>
       ${notFocus.length ? `<p class="muted">Not a focus of the ${e.name}: ${notFocus.map(t => t.icon + " " + esc(t.name)).join(", ")}.</p>` : ""}
-      <div class="card mt">
+      ${other ? `<div class="card mt">
         <b>${esc(other.full)} (${other.name})</b>
         <p style="margin:6px 0 10px">${esc(other.blurb)} ${other.questions} questions in ${hrs(other.minutes)}.</p>
         <button class="btn small" id="switch-other">Switch to ${other.name}</button>
-      </div>
+      </div>` : ""}
       <div class="trap">${e.source}</div>`;
     $app.querySelectorAll("[data-el]").forEach(b => b.onclick = () => practiceSection(id, b.dataset.el));
-    document.getElementById("switch-other").onclick = () => setTrack(otherTrack());
+    if (other) document.getElementById("switch-other").onclick = () => setTrack(otherTrack());
   };
 
   // ----- Backup & restore -----
